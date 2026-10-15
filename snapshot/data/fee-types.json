@@ -1,0 +1,79 @@
+{
+  "terms": [
+    {
+      "term": "2026 Term 4",
+      "due": "2026-11-13"
+    },
+    {
+      "term": "2027 Term 1",
+      "due": "2027-02-12"
+    },
+    {
+      "term": "2026 Term 3",
+      "due": "2026-09-18"
+    }
+  ],
+  "feeTypes": [
+    {
+      "id": "FT-01",
+      "school": "S001",
+      "name": "School Fees (Secondary)",
+      "updated": "2026-09-28",
+      "components": [
+        {
+          "name": "Miscellaneous",
+          "amount": 13
+        },
+        {
+          "name": "Learning Materials",
+          "amount": 55
+        },
+        {
+          "name": "Enrichment",
+          "amount": 65
+        },
+        {
+          "name": "Student Insurance",
+          "amount": 8
+        }
+      ]
+    },
+    {
+      "id": "FT-02",
+      "school": "S002",
+      "name": "School Fees (Primary)",
+      "updated": "2026-09-28",
+      "components": [
+        {
+          "name": "Miscellaneous",
+          "amount": 10
+        },
+        {
+          "name": "Learning Materials",
+          "amount": 45
+        },
+        {
+          "name": "Student Insurance",
+          "amount": 8
+        }
+      ]
+    },
+    {
+      "id": "FT-03",
+      "school": "S001",
+      "name": "Supplementary Fees",
+      "updated": "2026-08-20",
+      "components": [
+        {
+          "name": "Co-curricular Attire",
+          "amount": 70
+        },
+        {
+          "name": "Camp Fee",
+          "amount": 50
+        }
+      ],
+      "level": "Sec 1"
+    }
+  ]
+}

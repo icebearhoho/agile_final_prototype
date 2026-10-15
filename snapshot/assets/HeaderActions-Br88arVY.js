@@ -1,0 +1,1 @@
+import{a as e,s as t}from"./Button-Chqw02Ns.js";import{Z as n}from"./index-9rDsKP4t.js";var r=t(e(),1),i=n();function a({children:e}){let[t,n]=(0,r.useState)(null);return(0,r.useEffect)(()=>n(document.getElementById(`header-actions`)),[]),t?(0,i.createPortal)(e,t):null}export{a as t};

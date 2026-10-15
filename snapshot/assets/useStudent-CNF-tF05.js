@@ -1,0 +1,1 @@
+import{J as e,X as t,x as n}from"./index-9rDsKP4t.js";function r(){let{id:r}=t(),{state:i}=e();return i?.student?.id===r?i?.student:n.find(e=>e.id===r)}export{r as t};

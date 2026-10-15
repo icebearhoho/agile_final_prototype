@@ -1,0 +1,1 @@
+var e=/^(\d{1,3}(,\d{3})+|\d+)(\.\d{1,2})?$/;function t(t){let n=t.trim().replace(/^S\$\s*/i,``);if(!e.test(n))return{error:`Enter an amount greater than 0, for example 125000 (max 2 decimals)`};let r=Number(n.replace(/,/g,``));return r>0?r>1e10?{error:`Amount cannot exceed S$10,000,000,000`}:{value:r}:{error:`Enter an amount greater than 0`}}export{t};

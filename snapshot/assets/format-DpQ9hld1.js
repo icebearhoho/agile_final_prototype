@@ -1,0 +1,1 @@
+var e=new Intl.NumberFormat(`en-US`,{minimumFractionDigits:2,maximumFractionDigits:2});function t(t,n){if(n?.compact){let e=Math.abs(t);return e>=1e6?`S$${(t/1e6).toFixed(2)}M`:e>=1e3?`S$${+(t/1e3).toFixed(1)}K`:`S$${+t.toFixed(2)}`}return`S$${e.format(t)}`}export{t};
