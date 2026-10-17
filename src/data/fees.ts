@@ -8,15 +8,23 @@ export const MASTER = "MOE";
 
 export type ChargeStatus = "outstanding" | "overdue" | "paid";
 export type ChargeComponent = FeeComponent & { subsidy?: number };
-/** One fee issued to one student for one term. Components are copied from the fee type when issued. */
+/** Fee assistance scheme applied to a charge. A student receives at most one: MOEFAS takes precedence over SBFAS. */
+export type FasScheme = "MOEFAS" | "SBFAS";
+/** Money a parent paid against one charge, and where it came from. */
+export type PayMethod = "Education account" | "Card / PayNow";
+export type Payment = { id: string; on: string; amount: number; method: PayMethod };
+/**
+ * One fee issued to one student — no term: the charge carries its own issued/due dates and its whole
+ * money story (components + FAS subsidy + parent payments). Status is derived, never stored
+ * (see lib/fees.chargeStatus): paid when payments cover the payable, overdue when past due unpaid.
+ */
 export type Charge = {
-  id: string; studentId: string; ftId: string; title: string; term: string;
-  issued: string; due: string; status: ChargeStatus; paidOn?: string; components: ChargeComponent[];
+  id: string; studentId: string; ftId: string; title: string;
+  issued: string; due: string; components: ChargeComponent[]; fas?: FasScheme; payments: Payment[];
 };
 
-export const TERMS = ["2026 Term 4", "2027 Term 1", "2026 Term 3"];
-/** Default due date per term (no manual field). */
-export const TERM_DUE: Record<string, string> = { "2026 Term 4": "2026-11-13", "2027 Term 1": "2027-02-12", "2026 Term 3": "2026-09-18" };
+/** Default payment window when a charge is generated (no term to derive it from). */
+export const DEFAULT_DUE_DAYS = 30;
 
 // ASSUMPTION: invented fee types and amounts (mock data). Schools define their own; HQ views them read-only.
 export const FEE_TYPES: FeeType[] = [

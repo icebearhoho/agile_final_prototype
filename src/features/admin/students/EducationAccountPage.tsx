@@ -6,7 +6,7 @@ import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { useFees } from "../../../data/feeStore";
-import { payableOf } from "../../../lib/fees";
+import { balanceOf, chargeStatus, payableOf } from "../../../lib/fees";
 import { StatusBadge } from "../fee-types/parts";
 import { ACCOUNT_CLOSES_AT, ACCOUNT_OPENS_AT, accountStatus, ageForLevel, ledgerFor } from "../../../lib/accounts";
 import { SCHOOLS } from "../../../data/schools";
@@ -44,8 +44,8 @@ export default function EducationAccountPage() {
   }
 
   const charges = allCharges.filter((c) => c.studentId === student.id);
-  const unpaid = charges.filter((c) => c.status !== "paid");
-  const due = unpaid.reduce((t, c) => t + payableOf(c), 0);
+  const unpaid = charges.filter((c) => chargeStatus(c) !== "paid");
+  const due = unpaid.reduce((t, c) => t + balanceOf(c), 0);
   const left = student.balance - due;
   const entries = ledgerFor(student);
   const initials = student.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
@@ -71,7 +71,10 @@ export default function EducationAccountPage() {
     ["Academic year", "2026"],
     ["Opened", `${fmt(opened, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })} SGT`],
     ["Closed", ageForLevel(student.level) >= ACCOUNT_CLOSES_AT ? fmt(closed, { day: "numeric", month: "short", year: "numeric" }) : "—"],
-    ...(role === "school" ? ([["SBFAS", <Badge key="f" tone={SBFAS_TONE[student.sbfas]}>{student.sbfas}</Badge>]] as [string, ReactNode][]) : []),
+    ...(role === "school" ? ([
+      ["MOEFAS", <Badge key="m" tone={SBFAS_TONE[student.moefas]}>{student.moefas}</Badge>],
+      ["SBFAS", <Badge key="f" tone={SBFAS_TONE[student.sbfas]}>{student.sbfas}</Badge>],
+    ] as [string, ReactNode][]) : []),
   ];
 
   return (
@@ -114,11 +117,11 @@ export default function EducationAccountPage() {
                 <li key={c.id} className="flex items-center justify-between gap-3 py-3 text-sm">
                   <div>
                     <div className="font-medium text-on-surface">{c.title}</div>
-                    <div className="text-[13px] text-on-surface-variant">{c.term}, due {c.due}</div>
+                    <div className="text-[13px] text-on-surface-variant">issued {c.issued}, due {c.due}</div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="font-medium text-on-surface">{formatSGD(payableOf(c))}</span>
-                    <StatusBadge status={c.status} />
+                    <span className="font-medium text-on-surface">{formatSGD(balanceOf(c) || payableOf(c))}</span>
+                    <StatusBadge status={chargeStatus(c)} />
                   </div>
                 </li>
               ))}

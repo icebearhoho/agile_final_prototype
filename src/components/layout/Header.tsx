@@ -8,6 +8,7 @@ const pill =
 
 type Props = { title: string; subtitle?: string; showFilter?: boolean };
 
+/** Page header, restored to the icebearhoho layout: large title + subtitle, header actions, bell and avatar. */
 export default function Header({ title, subtitle }: Props) {
   const { user } = useSession();
   return (
