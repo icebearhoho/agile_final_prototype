@@ -41,10 +41,6 @@ export const STAFF: StaffAccount[] = [
   // S002 (Riverbank Primary) account: each school reviews only its own students' FAS applications.
   { role: "school", name: "Geraldine Rajaratnam", initials: "GR", title: "School Admin", email: "geraldine.rajaratnam@school.example", password: "Sch00l-Demo-26", schoolCode: "S002", modules: ["FAS"], active: true },
   { role: "hq", name: "Daniel Lim", initials: "DL", title: "MOE HQ Officer", email: "daniel.lim@moe.example", password: "HqOfficer-Demo-26", modules: [...MODULES], active: true },
-  // Third-party feed: school staff not yet assigned to a school. HQ assigns one as Principal when adding a school.
-  { role: "school", name: "Grace Wong", initials: "GW", title: "Teacher", email: "grace.wong@school.example", password: "Sch00l-Grace-26", modules: [], active: false },
-  { role: "school", name: "Ahmad Rahman", initials: "AR", title: "Teacher", email: "ahmad.rahman@school.example", password: "Sch00l-Ahmad-26", modules: [], active: false },
-  { role: "school", name: "Chen Mei Ling", initials: "CM", title: "Teacher", email: "chen.meiling@school.example", password: "Sch00l-Chen-26", modules: [], active: false },
 ];
 
 export const initialsOf = (name: string) => name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();

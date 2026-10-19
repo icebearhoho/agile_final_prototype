@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { navFor } from "./nav";
-import { STAFF, assignPrincipal, createSchoolUser, principalOf, unassignedStaff, updateSchoolUser, usersOfSchool, validateUser } from "./users";
+import { STAFF, type StaffAccount, assignPrincipal, createSchoolUser, principalOf, unassignedStaff, updateSchoolUser, usersOfSchool, validateUser } from "./users";
 
 describe("school users", () => {
   test("a school has one Principal and several admins", () => {
@@ -29,8 +29,10 @@ describe("school users", () => {
   });
 
   test("assigning a Principal reuses the existing account and demotes the old one", () => {
+    const mk = (n: string): StaffAccount => ({ role: "school", name: n, initials: "TT", title: "Teacher", email: `${n}@school.example`, password: "x", modules: [], active: false });
+    const [first, second] = [mk("tmp.one"), mk("tmp.two")];
+    STAFF.push(first, second);
     const before = STAFF.length;
-    const [first, second] = unassignedStaff();
     const p = assignPrincipal("S002", first.email);
     expect(p).toBe(first);
     expect(STAFF).toHaveLength(before);
@@ -39,7 +41,8 @@ describe("school users", () => {
     assignPrincipal("S002", second.email);
     expect(first.title).toBe("School Admin");
     expect(principalOf("S002")).toBe(second);
-    for (const a of [first, second]) Object.assign(a, { schoolCode: undefined, title: "Teacher", modules: [], active: false });
+    for (const a of [first, second]) STAFF.splice(STAFF.indexOf(a), 1);
+    expect(STAFF).toHaveLength(before - 2);
   });
 });
 

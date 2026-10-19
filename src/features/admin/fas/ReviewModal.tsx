@@ -3,11 +3,8 @@ import { Link } from "react-router";
 import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
+import { SBFAS_TIER_AMOUNT } from "../../../data/budgets";
 import { INCOME_API_SOURCE, SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
-import { ACADEMIC_YEAR, SBFAS_TIER_AMOUNT } from "../../../data/budgets";
-import { selectSbfas, useFas } from "../../../data/fasStore";
-import { budgetAlertText } from "../../../lib/budget";
-import { benefitsFor, REIMBURSEMENT_NOTE, SBFAS_PACKAGE } from "../../../data/fasBenefits";
 import { isMoefasEligible, isSbfasEligible } from "../../../data/students";
 import { formatDate, formatSGD } from "../../../lib/format";
 import { statusLabel, validateDecision, type Action, type Draft, type DecisionError } from "./review";
@@ -33,9 +30,6 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: Sbfa
   const tierRef = useRef<HTMLSelectElement>(null);
   const justRef = useRef<HTMLTextAreaElement>(null);
   const decided = app.status !== "Pending";
-  const { state } = useFas();
-  const sb = selectSbfas(state);
-  const budgetAlert = budgetAlertText("SBFAS", sb.used, sb.budget);
 
   const act = (action: Action) => {
     const draft = { justification, tier };
@@ -83,28 +77,7 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: Sbfa
           </Dt>
           <Dt label="Account balance (top-ups)">{formatSGD(app.balance)}</Dt>
         </dl>
-        <p className="mt-2 text-[12.5px] leading-snug text-on-surface-variant">
-          Two different things: an <b>FAS subsidy reduces the fee</b> the family owes, while <b>MOE top-ups credit the Education Account balance</b> used to pay it. A top-up never changes the subsidy, and the subsidy is not paid into the account.
-        </p>
-        <p className="mt-2 text-[12.5px] leading-snug text-on-surface-variant">
-          MOE FAS is assessed first — a family just above its income criteria is routed here for SBFAS. Typical SBFAS package ({SBFAS_PACKAGE.funding}): {SBFAS_PACKAGE.items.join("; ")}. For comparison, MOE FAS grants: {benefitsFor(app.level).join("; ")}.
-        </p>
-        <p className="mt-2 text-[12.5px] leading-snug text-on-surface-variant">{REIMBURSEMENT_NOTE}</p>
       </div>
-
-      <p className="text-[13px] rounded-control border border-line bg-surface-container-low px-3 py-2.5">
-        A student cannot receive both schemes: if MOEFAS applies, MOEFAS takes precedence and SBFAS is not granted — approve SBFAS only when the student has no MOEFAS.
-      </p>
-
-      {!decided && (
-        <div className="rounded-control border border-line bg-surface-container-low px-3 py-2.5 text-[13px]">
-          <p>
-            Remaining SBFAS budget ({ACADEMIC_YEAR}): <b>{formatSGD(Math.max(0, sb.remaining))}</b> of {formatSGD(sb.budget)}.{" "}
-            <Link to="/admin/budgets" className="text-primary underline-offset-2 hover:underline">Open budget</Link>
-          </p>
-          {budgetAlert && <p className="mt-1 font-medium text-alert">{budgetAlert}</p>}
-        </div>
-      )}
 
       {decided ? (
         <div className="rounded-control border border-line p-4 text-sm">
