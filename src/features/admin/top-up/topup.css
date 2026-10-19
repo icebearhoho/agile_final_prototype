@@ -1,10 +1,12 @@
-/* Top-up page: ported 1:1 from the team's prototype (MOE_Top_Up_UI_Total_Credited_Updated.html), scoped under .tu. */
-.tu{--paper:#fff;--maroon:#8b243a;--maroon-text:#a20f29;--text:#0c0b0c;--sub:#775d61;--border:#eae3e3;--field:#a69b9d;--switch:#eee9e9;--positive:#e2f3e9;--positive-ink:#078356;--warn:#fff1d8;--warn-ink:#b4740d;font-size:13px;color:var(--text)}
+/* Top-up page: stylesheet copied from the team's latest prototype (MoE_Topup.html), scoped under .tu. The app shell (sidebar, header) is the app's own. */
+.tu{--page:#f8f6f6;--paper:#fff;--maroon:#8b243a;--maroon-text:#a20f29;--text:#0c0b0c;--sub:#775d61;--border:#eae3e3;--field:#a69b9d;--switch:#eee9e9;--positive:#e2f3e9;--positive-ink:#078356;--warn:#fff1d8;--warn-ink:#b4740d;--radius:15px}
 .tu *{box-sizing:border-box}
+.tu{color:var(--text);font-size:13px}
 .tu button,.tu input,.tu select,.tu textarea{font:inherit}
 .tu button{cursor:pointer}
 .tu button:disabled{opacity:.5;cursor:not-allowed}
 .tu button:focus-visible,.tu input:focus-visible,.tu select:focus-visible,.tu textarea:focus-visible{outline:2px solid var(--maroon);outline-offset:2px}
+.tu .hidden{display:none!important}
 .tu h2,.tu h3,.tu p{margin:0}
 .tu h2{font-size:14px;font-weight:700}
 .tu h3{font-size:12px}
@@ -19,7 +21,7 @@
 .tu .rightcard{padding:20px 21px 22px}
 .tu .card h2{margin-bottom:15px}
 .tu .field{margin-bottom:19px}
-.tu .field label{display:block;font-size:12px;font-weight:700;margin-bottom:8px}
+.tu .field label,.tu .field-label{display:block;font-size:12px;font-weight:700;margin-bottom:8px}
 .tu .field input:not([type=checkbox]),.tu .field select,.tu .field textarea{height:40px;width:100%;padding:9px 11px;border:1px solid var(--field);border-radius:8px;background:white;color:#121012;outline-offset:2px}
 .tu .field textarea{height:69px;min-height:69px;resize:vertical}
 .tu .field .help{font-size:12px;line-height:1.5;color:var(--sub);margin-top:7px}
@@ -32,10 +34,13 @@
 .tu .btn{font-weight:600;color:var(--maroon-text);border:1px solid var(--border);background:white;border-radius:9px;padding:11px 17px;min-height:40px}
 .tu .btn.primary{background:var(--maroon);border-color:var(--maroon);color:white}
 .tu .btn:hover{filter:brightness(.96)}
-.tu .btn.small{padding:7px 12px;min-height:32px;font-size:12px;color:var(--maroon-text)}
+.tu .btn.small{padding:7px 12px;min-height:32px;font-size:12px}
+.tu .divider{border:0;border-top:1px solid var(--border);margin:22px 0}
 .tu .summaryrow{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding:10px 0;gap:12px;min-height:37px}
 .tu .summaryrow span{color:var(--sub)}
 .tu .summaryrow strong{text-align:right;font-size:12px;font-weight:600}
+.tu .summaryrow:last-child{border-bottom:0;margin-top:7px}
+.tu .summaryrow:last-child strong{color:var(--maroon-text)}
 .tu .combo{position:relative}
 .tu .combo input{padding-right:36px!important}
 .tu .combo-pop{position:absolute;z-index:15;top:calc(100% + 4px);left:0;right:0;max-height:240px;overflow:auto;background:white;border:1px solid var(--border);border-radius:9px;box-shadow:0 6px 20px #3b25251a}
@@ -48,13 +53,13 @@
 .tu .badge{display:inline-block;border-radius:999px;background:var(--positive);color:var(--positive-ink);font-weight:700;font-size:12px;padding:4px 9px}
 .tu .badge.draft{background:var(--warn);color:var(--warn-ink)}
 .tu .badge.deactivated{background:#eee9eb;color:#84676f}
-.tu .badge.failed{background:#fbe7eb;color:#ad2742}
 .tu .rule-summary{border:1px solid var(--border);border-radius:8px;padding:13px;margin-top:-8px;margin-bottom:16px;color:#594549}
 .tu .alert{background:#fff6f4;color:#8c2c42;border:1px solid #f1dadf;border-radius:8px;padding:10px 12px;margin:12px 0;font-size:12px}
 .tu .toolbar{display:flex;align-items:center;gap:12px;margin:14px 0 17px}
-.tu .toolbar input,.tu .toolbar select{height:39px;flex:1 1 0;min-width:0;width:100%;border-radius:9px;border:1px solid var(--field);padding:9px 12px;background:white}
-.tu .toolbar>button.btn{flex:0 0 auto;white-space:nowrap;min-height:39px}
+.tu .toolbar input,.tu .toolbar select{height:39px;max-width:280px;width:100%;border-radius:9px;border:1px solid var(--field);padding:9px 12px;background:white}
+.tu .toolbar select{max-width:155px}
 .tu .tablecard{padding:20px 20px 28px}
+.tu .tabletop{display:flex;justify-content:space-between;align-items:center;gap:16px}
 .tu .tablewrap{overflow-x:auto;width:100%}
 .tu .data-table{border-collapse:collapse;width:100%;min-width:1180px;font-size:12px}
 .tu .data-table th{text-align:left;color:#645357;font-weight:500;padding:14px 11px;border-bottom:1px solid var(--border);white-space:nowrap}
@@ -64,7 +69,8 @@
 .tu .data-table td small{display:block;color:var(--sub);margin-top:3px;font-size:11px}
 .tu .actiongroup{display:flex;align-items:center;gap:8px;white-space:nowrap}
 .tu .actiongroup button{border:1px solid var(--border);border-radius:9px;background:white;color:var(--maroon-text);padding:8px 11px;font-weight:500}
-.tu .actiongroup button:hover{background:#faf1f3;border-color:#dcc9cd}
+.tu .actiongroup button:last-child{border:0;background:transparent}
+.tu .actiongroup button:hover{background:#faf1f3}
 .tu .backline{display:block;border:0;background:none;color:var(--maroon-text);font-size:12px;margin:4px 0 17px;padding:0}
 .tu .ruleformcard{padding:20px 16px 16px}
 .tu .ruleformcard .field{margin-bottom:13px}
@@ -72,6 +78,8 @@
 .tu .sectionlabel{font-size:11px;color:#514347;margin:10px 0 11px;text-transform:uppercase}
 .tu .formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .tu .formgrid .field{margin-bottom:12px}
+.tu .field input[readonly]{background:#fff;color:#776d70}
+.tu .field input[disabled]{opacity:.75}
 .tu .schools-row{display:flex;align-items:center;gap:7px;margin-bottom:10px}
 .tu .schools-row input{border:1px solid var(--field);height:30px;border-radius:8px;padding:7px 9px;width:200px}
 .tu .schools-list{border:1px solid var(--border);border-radius:4px;height:151px;overflow-y:auto}
@@ -85,121 +93,116 @@
 .tu .modal-shade{position:fixed;inset:0;background:#0006;display:grid;place-items:center;z-index:30;padding:18px}
 .tu .dialog{background:white;max-width:480px;width:100%;border-radius:16px;padding:23px;border:1px solid var(--border)}
 .tu .dialog p{margin:10px 0;line-height:1.6}
-.tu .dialog-summary{background:#f8f6f6;border:1px solid var(--border);padding:12px;border-radius:9px;line-height:1.8;white-space:pre-line}
+.tu .dialog-summary{background:var(--page);border:1px solid var(--border);padding:12px;border-radius:9px;line-height:1.8;white-space:pre-line}
 .tu .notice{position:fixed;bottom:20px;right:23px;background:#282225;color:white;border-radius:9px;padding:12px 16px;box-shadow:0 7px 24px #0003;z-index:45;max-width:360px}
 .tu .empty{color:var(--sub);padding:16px;text-align:center}
 .tu .scroll-small{max-height:340px;overflow:auto}
-.tu .summary-eligible-list{margin-top:16px;border-top:1px solid var(--border);padding-top:15px}
-.tu .summary-eligible-list h3{margin-bottom:10px;font-size:12px}
-.tu .eligible-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px}
-.tu .eligible-item:last-child{border-bottom:0}
-.tu .eligible-item small{display:block;color:var(--sub);font-size:11px;margin-top:3px}
-.tu .eligible-item .account-id{color:var(--sub);font-size:11px;white-space:nowrap}
-.tu input[type=number]{-moz-appearance:textfield;appearance:textfield}
-.tu input[type=number]::-webkit-inner-spin-button,.tu input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
-@media(max-width:1050px){.tu .two{grid-template-columns:1fr}.tu .leftcard{min-height:unset}.tu .field-half{max-width:100%}}
-@media(max-width:750px){.tu .toolbar{flex-wrap:wrap}.tu .toolbar>input{flex:1 1 100%}.tu .toolbar>select{flex:1 1 140px}.tu .toolbar>button.btn{margin-left:auto}}
-@media(max-width:600px){.tu .formgrid{grid-template-columns:1fr}.tu .tabs button{font-size:11px;padding:10px}.tu .leftcard,.tu .rightcard,.tu .tablecard{padding:14px}}
-
-/* Polish */
-.tu .tabs button{transition:color .15s,border-color .15s}
-.tu .tabs button:hover:not(.active){color:var(--maroon-text)}
-.tu .tabs button.active{border-bottom-width:2px;margin-bottom:-1px}
-.tu .data-table tbody tr{transition:background .12s}
-.tu .data-table tbody tr:hover{background:#fcf9f9}
-.tu .data-table td:nth-child(4){white-space:nowrap}
-.tu .data-table td:nth-child(7),.tu .data-table td:nth-child(8){font-variant-numeric:tabular-nums;white-space:nowrap}
-.tu .data-table th:nth-child(6),.tu .data-table td:nth-child(6){text-align:right}
-.tu .data-table td:first-child{font-variant-numeric:tabular-nums;white-space:nowrap}
-.tu .badge{white-space:nowrap}
-.tu .toolbar input:focus-visible,.tu .toolbar select:focus-visible{border-color:var(--maroon)}
-.tu .field input:not([type=checkbox]):focus,.tu .field select:focus,.tu .field textarea:focus{border-color:var(--maroon)}
-.tu .field input:not([type=checkbox])::placeholder,.tu .field textarea::placeholder,.tu .toolbar input::placeholder{color:#a69b9d}
-.tu .btn,.tu .switch button,.tu .studentitem,.tu .actiongroup button{transition:background .12s,filter .12s,border-color .12s}
-.tu .btn:active{transform:translateY(1px)}
-.tu .btn.primary:hover{filter:brightness(1.08)}
-.tu .switch button:not(.selected):hover{color:var(--maroon-text)}
-.tu .studentitem:focus-visible{outline-offset:-2px}
-.tu .rightcard{position:sticky;top:24px}
-.tu .summaryrow strong{max-width:60%;overflow-wrap:anywhere}
-.tu .selected-account{background:#fcf9f9}
-.tu .eligible-item{padding:8px 0}
-.tu .dialog{box-shadow:0 18px 50px #2e262833}
-.tu .backline{font-weight:600;padding:6px 0}
-.tu .backline:hover{text-decoration:underline}
-.tu .empty{padding:28px 16px}
-@media(max-width:1050px){.tu .rightcard{position:static}}
-@media(prefers-reduced-motion:reduce){.tu *{transition:none!important}}
-.tu .data-table td:nth-child(5){white-space:nowrap}
-.tu .data-table th:nth-child(6),.tu .data-table td:nth-child(6){padding-right:24px}
-
-/* From prototype: filters row, full-width form row, read-only rule view, scrollable account table */
-.tu .filters-toolbar{flex-wrap:wrap;gap:9px}
-.tu .filters-toolbar .filter-search{flex:1 1 150px;min-width:130px;max-width:260px}
-.tu .filters-toolbar select{flex:0 0 126px;width:126px}
-.tu .filters-toolbar input[type="date"]{flex:0 0 140px;width:140px}
-.tu .filters-toolbar .create-action{margin-left:auto}
-.tu .toolbar>button.btn{min-height:39px;padding:9px 12px}
-.tu .ruleformcard .formgrid .full-row{grid-column:1 / -1}
-.tu .rule-fieldset{border:0;margin:0;padding:0;min-width:0}
+.tu .eligible-preview{margin-top:15px;border-top:1px solid var(--border);padding-top:15px}
+.tu .eligible-preview h3{font-size:12px;margin:0 0 10px}
+.tu .eligible-preview-list{max-height:290px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.tu .eligible-preview-item{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border);padding:10px 2px}
+.tu .eligible-preview-item:last-child{border-bottom:0}
+.tu .eligible-preview-item strong{display:block;font-size:12px}
+.tu .eligible-preview-item small{display:block;color:var(--sub);font-size:11px;margin-top:4px}
+.tu .eligible-preview-item .account-ref{color:var(--sub);font-size:11px;white-space:nowrap}
+.tu .transaction-scroll{max-height:390px;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;border:1px solid var(--border);border-radius:9px}
+.tu .transaction-scroll .data-table thead th{position:sticky;top:0;background:white;z-index:1;box-shadow:0 1px 0 var(--border)}
 .tu .rule-view-mode .schools-row button{display:none}
 .tu .rule-view-mode .schoolitem{cursor:default}
-.tu .tabletop{display:flex;justify-content:space-between;align-items:center;gap:16px}
-.tu .small{font-size:12px;color:var(--sub)}
-.tu .transaction-scroll{max-height:390px;overflow:auto;border:1px solid var(--border);border-radius:9px}
-.tu .transaction-scroll .data-table thead th{position:sticky;top:0;background:white;z-index:1;box-shadow:0 1px 0 var(--border)}
-
-/* Larger type for readability (the base prototype used 12-13px). */
-.tu{font-size:14px}
-.tu .small{font-size:13px}
-.tu .tabs button{font-size:14px}
-.tu .toolbar input,.tu .toolbar select{height:44px;font-size:14px}
-.tu .toolbar>button.btn,.tu .filters-toolbar>button.btn{min-height:44px;font-size:14px}
-.tu .btn{font-size:14px}
-.tu .field label{font-size:14px}
-.tu .help{font-size:13px}
-.tu .summaryrow{font-size:14px}
-.tu .studentitem{font-size:14px}
-.tu .studentitem small,.tu .selected-account small,.tu .eligible-item small{font-size:12.5px}
-/* Roomy data tables (history and account lists): left-aligned unless a cell sets its own alignment inline. */
-.tu .data-table.roomy{font-size:14.5px;min-width:960px}
-.tu .data-table.roomy th,.tu .data-table.roomy td{text-align:left;padding:17px 14px}
-.tu .data-table.roomy th{font-size:13px;font-weight:600;color:#645357}
-.tu .data-table.roomy td small{font-size:13px;margin-top:5px}
-.tu .data-table.roomy td,.tu .data-table.roomy th{white-space:nowrap}
-.tu .data-table.roomy td:nth-child(2),.tu .data-table.roomy td:last-child{white-space:normal}
-.tu .data-table.roomy .badge{font-size:13px;padding:5px 12px}
-.tu .data-table.roomy .actiongroup button{font-size:14px;padding:9px 15px}
-.tu .data-table.roomy td:nth-child(2){min-width:240px}
-
-/* Rule form: targeting conditions */
-.tu .band-list{display:grid;gap:10px;margin-bottom:10px}
-.tu .band-list>.btn{justify-self:start}
-.tu .band-line{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(120px,1fr);align-items:end;gap:11px;border:1px solid var(--border);padding:12px;border-radius:9px}
-.tu .band-line>.btn{height:40px}
+@media(max-width:1050px){.tu .two{grid-template-columns:1fr}.tu .leftcard{min-height:unset}.tu .field-half{max-width:100%}}
+@media(max-width:600px){.tu .formgrid{grid-template-columns:1fr}.tu .tabs button{font-size:11px;padding:10px}.tu .toolbar{flex-wrap:wrap}.tu .leftcard,.tu .rightcard,.tu .tablecard{padding:14px}}
+.tu .filters-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:14px 0 17px}
+.tu .filters-toolbar .filter-search{flex:1 1 150px;min-width:130px;max-width:260px}
+.tu .filters-toolbar select{flex:0 0 126px;width:126px;max-width:126px}
+.tu .filters-toolbar input[type="date"]{flex:0 0 140px;width:140px;max-width:140px;min-width:0}
+.tu .filters-toolbar .btn,.tu .toolbar .reset-filter{min-height:39px;padding:9px 12px;white-space:nowrap}
+.tu .filters-toolbar .create-action{margin-left:auto;flex-shrink:0}
+.tu .ruleformcard .formgrid .full-row{grid-column:1 / -1}
+@media(max-width:1100px){.tu .filters-toolbar .create-action{margin-left:0}.tu .filters-toolbar .filter-search{max-width:unset}}
+@media(max-width:600px){.tu .filters-toolbar .filter-search{flex:1 1 100%;max-width:none}.tu .filters-toolbar select{flex:1 1 120px}.tu .filters-toolbar input[type="date"]{flex:1 1 130px}.tu .filters-toolbar .create-action{width:100%}}
+.tu .band-list{display:flex;flex-direction:column;gap:9px;margin:0 0 12px}
+.tu .band-line{display:grid;grid-template-columns:minmax(120px,1fr) minmax(120px,1fr) auto;gap:11px;align-items:end;border:1px solid var(--border);padding:12px;border-radius:9px}
 .tu .band-line .field{margin:0}
-.tu .band-pair{display:flex;gap:8px}
-
-/* Specific Accounts multi-select and failed follow-up */
-.tu .account-check{cursor:pointer}
-.tu .check-name{display:flex;align-items:center;gap:10px}
-.tu .check-name input,.tu .failed-pick{accent-color:var(--maroon);width:16px;height:16px;vertical-align:middle;margin-right:8px;cursor:pointer}
-.tu .check-name input{margin-right:0}
+.tu .band-line .btn{height:40px}
+.tu .rule-info{color:var(--sub);font-size:11px;margin:5px 0 0}
+.tu .result-counts{display:flex;gap:14px;flex-wrap:wrap;color:var(--sub);font-size:12px;padding-top:12px}
+@media(max-width:600px){.tu .band-line{grid-template-columns:1fr 1fr}.tu .band-line .btn{grid-column:1 / -1}}
+.tu .history-select{width:16px;height:16px;accent-color:var(--maroon);cursor:pointer;vertical-align:middle}
+.tu .history-select:disabled{cursor:not-allowed;opacity:.35}
+@media(min-width:1220px){.tu #transactions-list .filters-toolbar{flex-wrap:nowrap;gap:7px}.tu #transactions-list .filters-toolbar .filter-search{flex:1 1 125px;min-width:120px;max-width:none}.tu #transactions-list .filters-toolbar select{flex:0 1 118px;width:118px;min-width:100px;max-width:125px}.tu #transactions-list .filters-toolbar input[type=date]{flex:0 1 132px;width:132px;min-width:116px;max-width:140px}.tu #transactions-list .filters-toolbar .create-action{margin-left:auto}}
+.tu #transactions-list .history-export-btn{white-space:nowrap;flex-shrink:0;min-height:39px}
+.tu .rule-kind{display:block;font-size:11px;color:var(--sub);margin-bottom:4px}
+.tu .rule-target-text{display:block;line-height:1.5;white-space:normal;min-width:125px}
+.tu .rule-amount-line{display:block;white-space:nowrap;line-height:1.7}
+.tu .rule-target-compact{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:225px;font-weight:600;color:var(--text)}
+.tu .rule-target-note{display:block;color:var(--sub);font-size:11px;margin-top:4px;white-space:nowrap}
+.tu .rule-amount-compact{font-weight:600;white-space:nowrap}
+.tu #rules-list .data-table th:nth-child(3),.tu #rules-list .data-table td:nth-child(3){max-width:250px;width:18%}
+.tu .mixed-line{display:grid;grid-template-columns:minmax(125px,1fr) minmax(220px,1.4fr) minmax(140px,1fr) auto;align-items:end;gap:10px;padding:12px;border:1px solid var(--border);border-radius:9px;margin-bottom:9px}
+.tu .mixed-line .field{margin-bottom:0}
+.tu .mixed-line select,.tu .mixed-line input{width:100%;height:39px;padding:8px 10px;border:1px solid var(--field);border-radius:8px;background:white}
+.tu .mixed-line .mixed-values{display:flex;gap:8px}
+.tu .mixed-line .mixed-values input{min-width:0}
+.tu .mixed-note{font-size:11px;color:var(--sub);line-height:1.5;margin:8px 0 12px}
+.tu .recovery-panel{margin-top:23px;border-top:1px solid var(--border);padding-top:18px}
+.tu .recovery-panel h2{margin-bottom:9px}
+.tu .recovery-line{display:grid;grid-template-columns:22px minmax(125px,1.15fr) minmax(145px,1.3fr) minmax(90px,0.6fr);align-items:center;gap:10px;border-bottom:1px solid var(--border);padding:11px 3px}
+.tu .recovery-line strong{font-size:12px}
+.tu .recovery-line small{display:block;color:var(--sub);font-size:11px;line-height:1.5;margin-top:4px}
+.tu .recovery-line input{accent-color:var(--maroon);width:16px;height:16px}
+.tu .recovery-line.is-blocked{opacity:.68}
+.tu .recovery-note{background:#faf6f6;border:1px solid var(--border);border-radius:9px;padding:12px;font-size:12px;color:#69565b;line-height:1.6;margin:9px 0}
+@media(max-width:900px){.tu .mixed-line{grid-template-columns:1fr 1fr}.tu .recovery-line{grid-template-columns:20px 1fr}.tu .recovery-line>div:last-child{grid-column:2}}
+.tu #new-topup-source-note{margin:5px 0 15px;padding:15px 17px}
+.tu .source-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.tu .source-desc{margin-top:9px;line-height:1.65}
+.tu .source-warning{margin-top:8px;color:#8b243a;font-size:12px;line-height:1.5}
+.tu .followup-link-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border);gap:10px}
+.tu .followup-link-row span{color:var(--sub)}
+.tu .followup-list{margin-top:24px}
+.tu .inline-link{background:none;border:0;padding:3px;color:var(--maroon-text);text-decoration:underline;font-weight:600}
+.tu #followup-rule-hint{margin:8px 0 13px;background:#faf6f6;border:1px solid var(--border);border-radius:9px;padding:10px 12px;line-height:1.5;font-size:12px;color:#75585e}
+.tu .selected-accounts-multi{background:#fff;border:1px solid var(--border);border-radius:9px;margin:0 0 16px;padding:11px 13px}
+.tu .selected-accounts-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:5px}
+.tu .selected-accounts-head strong{font-size:12px}
+.tu .single-account-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)}
+.tu .single-account-row:last-child{border-bottom:none}
+.tu .single-account-row small{display:block;color:var(--sub);font-size:11px;margin-top:3px}
+.tu .single-account-row .account-details{min-width:0}
+.tu .single-account-row .account-right{display:flex;gap:10px;align-items:center}
+.tu .single-account-row .remove-account{color:var(--maroon-text);border:1px solid var(--border);border-radius:7px;background:white;padding:6px 9px;white-space:nowrap}
+.tu .source-back{border:1px solid var(--border);background:#fff;color:var(--maroon-text);border-radius:8px;padding:8px 11px;font-size:12px;font-weight:600;margin-top:10px}
+.tu .followup-preview{margin-top:11px;border-top:1px solid var(--border);padding-top:10px}
+.tu .followup-preview-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;gap:8px;font-size:12px}
+.tu .followup-preview-row span{color:var(--sub)}
+.tu .studentitem.account-check{cursor:pointer;gap:12px}
+.tu .account-check .check-name{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.tu .account-check .check-name input[type="checkbox"]{accent-color:var(--maroon);height:17px;width:17px;flex-shrink:0;cursor:pointer}
+.tu .account-check .check-name span{min-width:0}
+.tu .failed-pick{accent-color:var(--maroon);width:16px;height:16px;vertical-align:middle;margin-right:8px;cursor:pointer}
 .tu .failed-pick:disabled{cursor:not-allowed;opacity:.4}
-.tu .selected-accounts-multi{border:1px solid var(--border);border-radius:9px;margin-bottom:16px;background:#fcf9f9}
-.tu .selected-accounts-head{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border)}
-.tu .single-account-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border)}
-.tu .single-account-row:last-child{border-bottom:0}
-.tu .single-account-row small{display:block;color:var(--sub);margin-top:3px}
-.tu .account-right{display:flex;align-items:center;gap:14px}
-.tu .followup-note{padding:18px 20px;margin-bottom:15px}
+.tu .followup-failed-summary{color:var(--sub);font-size:12px;line-height:1.6;margin-top:8px}
+@media(max-width:600px){.tu .account-check .studentaccount{text-align:right}}
+.tu .source-head.simple{display:block;margin-bottom:10px}
 .tu .followup-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0}
-.tu .metric{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px}
-.tu .metric strong{display:block;margin-top:4px;color:var(--maroon)}
-.tu .followup-list{list-style:none;padding:0;margin:10px 0 0}
-.tu .followup-list li{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:8px 0;border-bottom:1px solid var(--border)}
+.tu .metric{background:#fff;border:1px solid #eadfe0;border-radius:10px;padding:10px 12px}
+.tu .metric strong{display:block;margin-top:4px;color:#7f1d2d}
+.tu .followup-list{margin-top:12px;padding-top:12px;border-top:1px solid #eadfe0}
+.tu .followup-list ul{list-style:none;padding:0;margin:8px 0 0}
+.tu .followup-list li{display:flex;justify-content:space-between;gap:16px;padding:8px 0;border-bottom:1px solid #f1e7e8}
 .tu .followup-list li:last-child{border-bottom:0}
-.tu .inline-link{border:0;background:none;color:var(--maroon-text);font-weight:600;padding:0;text-decoration:underline}
-@media(max-width:900px){.tu .followup-metrics{grid-template-columns:1fr}}
-.tu .field label.studentitem{display:flex;font-weight:400;margin:0;font-size:14px;align-items:center}
-.tu .field label.studentitem strong{font-weight:600}
+.tu #topup-type-field.hidden{display:none!important}
+@media (max-width: 900px){.tu .followup-metrics{grid-template-columns:1fr}}
+.tu #rule-fixed-amount-field{display:none!important}
+.tu #rules-list .data-table{min-width:1050px}
+.tu .rule-condition-row{display:grid;grid-template-columns: 180px minmax(180px,1fr) auto;gap:11px;align-items:end;border:1px solid var(--border);border-radius:9px;padding:12px;margin-bottom:9px}
+.tu .rule-condition-row .field{margin-bottom:0}
+.tu .rule-condition-row input,.tu .rule-condition-row select{height:39px;width:100%;padding:8px 10px;border:1px solid var(--field);border-radius:8px;background:white}
+.tu .rule-condition-row .rule-condition-values{display:flex;gap:8px;align-items:center}
+.tu .rule-condition-values input{min-width:0}
+@media(max-width:680px){.tu .rule-condition-row{grid-template-columns:1fr}.tu .rule-condition-row .btn{justify-self:start}}
+
+/* App additions (not in the prototype): fieldset reset for the read-only rule view, details-page status colours */
+.tu .rule-fieldset{border:0;margin:0;padding:0;min-width:0}
+.tu .badge.failed{background:#fde7ea;color:#a20f29}
+.tu .badge.partial{background:var(--warn);color:var(--warn-ink)}

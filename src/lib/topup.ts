@@ -75,7 +75,7 @@ export function allocationsOf(t: Transaction, accounts: Account[]): Target[] {
   });
 }
 
-/** Display IDs, index-aligned with `rows` (newest first). Top-up ID = SIN|BAT + DDMMYY + 3-digit daily seq;
+/** Display IDs, index-aligned with `rows` (newest first). Top-up ID = SPE|BAT + DDMMYY + 3-digit daily seq;
  *  account txid = TUT + DDMMYY + 5-digit daily seq. Prototype only: production allocates these atomically in the backend. */
 export function ledgerIds(rows: Transaction[], accounts: Account[]) {
   const seq = new Map<string, number>();
@@ -83,7 +83,7 @@ export function ledgerIds(rows: Transaction[], accounts: Account[]) {
   const out = rows.map(() => ({ id: "", targets: [] as Target[] }));
   for (let i = rows.length - 1; i >= 0; i--) {
     const t = rows[i];
-    out[i].id = next(t.type === "Batch" ? "BAT" : "SIN", t.date, 3);
+    out[i].id = next(t.type === "Batch" ? "BAT" : "SPE", t.date, 3);
     out[i].targets = allocationsOf(t, accounts).map((a) => (a.status === "Pending" ? a : { ...a, txid: a.txid ?? next("TUT", t.date, 5) }));
   }
   return out;

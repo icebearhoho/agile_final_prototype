@@ -116,12 +116,12 @@ describe("retryableAccounts", () => {
   const accts = [acc("ok"), acc("later"), acc("closed", { status: "Closed" }), acc("fine")];
   const origin = tx({ targets: [{ student: "ok", account: "Tok", status: "Failed" }, { student: "later", account: "Tlater", status: "Failed" }, { student: "closed", account: "Tclosed", status: "Failed" }, { student: "fine", account: "Tfine", status: "Success" }] });
   test("only failed accounts that are Active can be retried", () => {
-    expect(ids(retryableAccounts(origin, "SIN151026001", [origin], accts))).toEqual(["ok", "later"]);
+    expect(ids(retryableAccounts(origin, "SPE151026001", [origin], accts))).toEqual(["ok", "later"]);
   });
   test("an account already credited by a follow-up is not offered again; a failed follow-up does not count", () => {
-    const paid = tx({ followupOf: "SIN151026001", targets: [{ student: "ok", account: "Tok", status: "Success" }] });
-    const failedAgain = tx({ followupOf: "SIN151026001", targets: [{ student: "later", account: "Tlater", status: "Failed" }] });
-    expect(ids(retryableAccounts(origin, "SIN151026001", [paid, failedAgain, origin], accts))).toEqual(["later"]);
+    const paid = tx({ followupOf: "SPE151026001", targets: [{ student: "ok", account: "Tok", status: "Success" }] });
+    const failedAgain = tx({ followupOf: "SPE151026001", targets: [{ student: "later", account: "Tlater", status: "Failed" }] });
+    expect(ids(retryableAccounts(origin, "SPE151026001", [paid, failedAgain, origin], accts))).toEqual(["later"]);
   });
 });
 

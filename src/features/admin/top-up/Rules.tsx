@@ -22,14 +22,14 @@ const MODES: [TargetMode, string][] = [["range", "Age range"], ["ages", "Specifi
 const range = (r: FundRule) => `${cash(r.minBalance)} to under ${cash(r.maxBalance)}`;
 
 export default function Rules(props: Props) {
-  const [form, setForm] = useState<{ view: FundRule | null } | null>(null);
-  return form ? <RuleForm {...props} view={form.view} onBack={() => setForm(null)} /> : <RuleList {...props} onAdd={() => setForm({ view: null })} onView={(r) => setForm({ view: r })} />;
+  const [form, setForm] = useState<{ rule: FundRule | null; ro: boolean } | null>(null);
+  return form ? <RuleForm {...props} rule={form.rule} ro={form.ro} onBack={() => setForm(null)} /> : <RuleList {...props} onAdd={() => setForm({ rule: null, ro: false })} onOpen={(rule, ro) => setForm({ rule, ro })} />;
 }
 
-function RuleList({ rules, onChange, onAdd, onView, notify, ask, closeAsk }: Props & { onAdd: () => void; onView: (r: FundRule) => void }) {
+function RuleList({ rules, onChange, onAdd, onOpen, notify, ask, closeAsk }: Props & { onAdd: () => void; onOpen: (r: FundRule, ro: boolean) => void }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
-  const list = rules.filter((r) => (!q.trim() || `${r.id} ${r.name}`.toLowerCase().includes(q.trim().toLowerCase())) && (!status || r.status === status));
+  const list = rules.filter((r) => (!q.trim() || `${r.id} ${r.name} ${targetLabel(r)}`.toLowerCase().includes(q.trim().toLowerCase())) && (!status || r.status === status));
   const setStatusOf = (id: string, s: RuleStatus) => onChange(rules.map((r) => (r.id === id ? { ...r, status: s } : r)));
   const toggle = (r: FundRule) => {
     if (r.status === "Active") { setStatusOf(r.id, "Deactivated"); notify(`Rule ${r.id} deactivated.`); return; }
@@ -40,32 +40,35 @@ function RuleList({ rules, onChange, onAdd, onView, notify, ask, closeAsk }: Pro
     });
   };
   return (
-    <div className="card tablecard">
-      <div className="toolbar">
-        <input type="search" placeholder="Search rule name or ID..." value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search rules" />
+    <div id="rules-list" className="card tablecard"><div className="tabletop"><h2>Batch Top-up Rule</h2></div>
+      <div className="toolbar filters-toolbar">
+        <input className="filter-search" type="search" placeholder="Search rule name or ID..." value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search rules" />
         <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter by status"><option value="">All statuses</option><option>Active</option><option>Draft</option><option>Deactivated</option></select>
-        <button type="button" className="btn primary" onClick={onAdd}>＋ Add rule</button>
+        <button type="button" className="btn reset-filter" onClick={() => { setQ(""); setStatus(""); }}>Reset Filter</button>
+        <button type="button" className="btn primary create-action" onClick={onAdd}>＋ Add rule</button>
       </div>
       <div className="tablewrap"><table className="data-table"><thead><tr><th>Rule ID</th><th>Rule name</th><th>Recipient criteria</th><th>Balance range</th><th>Schooling status</th><th>Schools</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>
           {list.length ? list.map((r) => (
             <tr key={r.id}>
-              <td>{r.id}</td><td><strong>{r.name}</strong></td><td><strong>{targetLabel(r)}</strong><small>{r.conditions.map(conditionText).join(", ")}</small></td><td>{range(r)}</td><td>{r.schooling}</td>
+              <td>{r.id}</td><td><strong>{r.name}</strong></td>
+              <td title={r.conditions.map(conditionText).join(" | ")}><span className="rule-target-compact">{targetLabel(r)}</span><span className="rule-target-note">{r.conditions.length} condition{r.conditions.length === 1 ? "" : "s"} · {r.status === "Draft" ? "Edit" : "View"} for details</span></td>
+              <td>{range(r)}</td><td>{r.schooling}</td>
               <td>{r.schools.length ? `${r.schools.length} selected` : "All schools"}</td>
               <td><span className={`badge ${badgeClass(r.status)}`}>{r.status}</span></td>
               <td><div className="actiongroup">
-                <button type="button" onClick={() => onView(r)}>View</button>
+                {r.status !== "Draft" && <button type="button" onClick={() => onOpen(r, true)}>View</button>}
+                {r.status !== "Active" && <button type="button" onClick={() => onOpen(r, false)}>Edit</button>}
                 <button type="button" onClick={() => toggle(r)}>{r.status === "Active" ? "Deactivate" : "Activate"}</button>
               </div></td>
             </tr>
-          )) : <tr><td className="empty" colSpan={8}>No Batch Top-up Rules found.</td></tr>}
+          )) : <tr><td colSpan={8} className="empty">No Batch Top-up Rules found.</td></tr>}
         </tbody></table></div>
     </div>
   );
 }
 
-function RuleForm({ rules, onChange, onBack, view: v, notify, ask, closeAsk }: Props & { onBack: () => void; view: FundRule | null }) {
-  const ro = Boolean(v);
+function RuleForm({ rules, onChange, onBack, rule: v, ro, notify, ask, closeAsk }: Props & { onBack: () => void; rule: FundRule | null; ro: boolean }) {
   const [name, setName] = useState(v?.name ?? "");
   const [mode, setMode] = useState<TargetMode>(v?.mode ?? "range");
   const [conds, setConds] = useState<FormCond[]>(v ? v.conditions.map(toForm) : DEFAULTS.range);
@@ -94,7 +97,8 @@ function RuleForm({ rules, onChange, onBack, view: v, notify, ask, closeAsk }: P
       : !Number.isFinite(bmin) || !Number.isFinite(bmax) || bmin < 0 || bmax <= bmin ? "Balance range is invalid."
       : !schooling ? "Schooling status is required." : "";
     if (err) { setError(err); return; }
-    onChange([...rules, { id: nextRuleId(rules), name: name.trim(), mode, conditions: parsed, minBalance: bmin, maxBalance: bmax, schooling: schooling as RuleSchooling, schools, status }]);
+    const next: FundRule = { id: v?.id ?? nextRuleId(rules), name: name.trim(), mode, conditions: parsed, minBalance: bmin, maxBalance: bmax, schooling: schooling as RuleSchooling, schools, status: v?.status === "Deactivated" && status === "Draft" ? "Deactivated" : status };
+    onChange(v ? rules.map((r) => (r.id === v.id ? next : r)) : [...rules, next]);
     onBack(); notify("Batch Top-up Rule saved.");
   };
   const activate = () => ask({
@@ -108,46 +112,52 @@ function RuleForm({ rules, onChange, onBack, view: v, notify, ask, closeAsk }: P
     <div>
       <button type="button" className="backline" onClick={onBack}>← Back to Batch Top-up Rule</button>
       <div className={`card ruleformcard${ro ? " rule-view-mode" : ""}`}><fieldset disabled={ro} className="rule-fieldset">
-        <div className="ruletitle">{ro ? "View Batch Top-up Rule" : "Create Batch Top-up Rule"}</div>
+        <div className="ruletitle">{ro ? "View Batch Top-up Rule" : v ? "Edit Batch Top-up Rule" : "Create Batch Top-up Rule"}</div>
         <div className="sectionlabel">1. RULE DETAILS</div>
         <div className="formgrid">
-          <div className="field"><label htmlFor="rule-id">Rule ID</label><input id="rule-id" readOnly value={v?.id ?? nextRuleId(rules)} /><div className="rule-form-help">Generated automatically on save.</div></div>
-          <div className="field"><label htmlFor="rule-name">Rule name {req}</label><input id="rule-name" placeholder="e.g. Primary Student Support" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} /></div>
+          <div className="field full-row"><label htmlFor="rule-name">Rule name {req}</label><input id="rule-name" placeholder="e.g. Primary Student Support" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} /></div>
         </div>
         <div className="sectionlabel">2. RECIPIENT CRITERIA</div>
         <div className="field"><label htmlFor="target-mode">Targeting method {req}</label>
           <select id="target-mode" value={mode} onChange={(e) => changeMode(e.target.value as TargetMode)}>{MODES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
-          <div className="rule-form-help">Specific ages can include 7 and 9 without 8. Combined criteria supports Age Range, Specific Age and Level in one rule.</div></div>
+          <div className="help">Specific Ages can include 7 and 9 without 8. Combined criteria supports Age Range, Specific Age and Level in one rule.</div></div>
         {mode === "range" ? (
-          <div className="formgrid">
+          <div id="age-range-wrap" className="formgrid">
             <div className="field"><label htmlFor="age-min">Minimum age (inclusive) {req}</label><input type="number" id="age-min" min={0} step={1} value={conds[0]?.a ?? ""} onChange={(e) => setCond(0, { a: e.target.value })} /></div>
             <div className="field"><label htmlFor="age-max">Maximum age (inclusive) {req}</label><input type="number" id="age-max" min={0} step={1} value={conds[0]?.b ?? ""} onChange={(e) => setCond(0, { b: e.target.value })} /></div>
           </div>
         ) : (
-          <div className="band-list">
-            {conds.map((c, i) => (
-              <div className="band-line" key={i}>
-                {mode === "mixed" && <div className="field"><label>Condition {i + 1}</label>
-                  <select value={c.type} onChange={(e) => changeType(i, e.target.value as Condition["type"])}><option value="range">Age Range</option><option value="age">Specific Age</option><option value="level">Level</option></select></div>}
-                <div className="field"><label>{c.type === "range" ? "Age (Min–Max)" : c.type === "age" ? "Age" : "Level"}</label>
-                  {c.type === "range" ? <div className="band-pair"><input aria-label="Minimum age" type="number" min={0} step={1} placeholder="From" value={c.a} onChange={(e) => setCond(i, { a: e.target.value })} /><input aria-label="Maximum age" type="number" min={0} step={1} placeholder="To" value={c.b} onChange={(e) => setCond(i, { b: e.target.value })} /></div>
-                    : c.type === "age" ? <input aria-label="Age" type="number" min={0} step={1} value={c.a} onChange={(e) => setCond(i, { a: e.target.value })} />
-                    : <select aria-label="Level" value={c.a} onChange={(e) => setCond(i, { a: e.target.value })}>{LEVELS.map((l) => <option key={l}>{l}</option>)}</select>}</div>
-                <button type="button" className="btn small" onClick={() => setConds(conds.filter((_, n) => n !== i))}>Remove</button>
-              </div>
-            ))}
+          <div id="bands-wrap">
+            <div id="band-list" className="band-list">
+              {conds.map((c, i) => (
+                <div className="rule-condition-row" key={i}>
+                  <div className="field"><label>Condition {i + 1}</label>
+                    {mode === "mixed"
+                      ? <select aria-label="Condition type" value={c.type} onChange={(e) => changeType(i, e.target.value as Condition["type"])}><option value="range">Age Range</option><option value="age">Specific Age</option><option value="level">Level</option></select>
+                      : <strong>{mode === "ages" ? "Specific Age" : "Level"}</strong>}</div>
+                  <div className="field"><label>{mode === "mixed" ? "Eligibility condition" : c.type === "age" ? "Age" : "Level"}</label>
+                    <div className="rule-condition-values">
+                      {c.type === "range" ? <><input aria-label="Minimum age" type="number" min={0} step={1} placeholder="Minimum Age" value={c.a} onChange={(e) => setCond(i, { a: e.target.value })} /><input aria-label="Maximum age" type="number" min={0} step={1} placeholder="Maximum Age" value={c.b} onChange={(e) => setCond(i, { b: e.target.value })} /></>
+                        : c.type === "age" ? <input aria-label="Specific age" type="number" min={0} step={1} value={c.a} onChange={(e) => setCond(i, { a: e.target.value })} />
+                        : <select aria-label="Level" value={c.a} onChange={(e) => setCond(i, { a: e.target.value })}>{LEVELS.map((l) => <option key={l}>{l}</option>)}</select>}
+                    </div></div>
+                  <button type="button" className="btn small" onClick={() => setConds(conds.filter((_, n) => n !== i))}>Remove</button>
+                </div>
+              ))}
+            </div>
             <button type="button" className="btn small" onClick={() => setConds([...conds, NEW_ROW[mode === "ages" ? "age" : mode === "levels" ? "level" : "range"]])}>{mode === "mixed" ? "＋ Add condition" : mode === "ages" ? "＋ Add age" : "＋ Add level"}</button>
+            <div className="help">Balance, Schooling Status and School List must match; targeting conditions can be alternatives in Combined mode.</div>
+            {mode === "mixed" && <div id="mixed-hint" className="mixed-note">An account matching any condition is eligible. An account matching multiple conditions within the same rule is included only once.</div>}
           </div>
         )}
-        <div className="rule-form-help">Balance, Schooling status and Schools must all match. In Specific ages, Level and Combined, a recipient needs to match only one of the conditions.</div>
-        <div className="formgrid" style={{ marginTop: 10 }}>
+        <div className="formgrid">
           <div className="field"><label htmlFor="bal-min">Minimum balance, inclusive (S$) {req}</label><input type="number" id="bal-min" min={0} step={0.01} value={balMin} onChange={(e) => setBalMin(e.target.value)} /></div>
           <div className="field"><label htmlFor="bal-max">Maximum balance, exclusive (S$) {req}</label><input type="number" id="bal-max" min={0} step={0.01} value={balMax} onChange={(e) => setBalMax(e.target.value)} />
             <div className="rule-form-help">Min &lt;= balance &lt; Max, so S$0–300 and S$300–500 never overlap at S$300.</div></div>
         </div>
         <div className="field"><label htmlFor="schooling">Schooling status {req}</label>
           <select id="schooling" value={schooling} onChange={(e) => setSchooling(e.target.value)}><option value="">Select schooling status...</option>{SCHOOLING.map((o) => <option key={o}>{o}</option>)}</select>
-          <div className="rule-form-help">Status options are illustrative, pending MOE confirmation.</div></div>
+          <div className="rule-form-help">Schooling status is separate from Education Account status.</div></div>
         <div className="sectionlabel">3. SCHOOLS (OPTIONAL)</div>
         <div className="schools-row">
           <input placeholder="Search school name..." aria-label="Search schools" value={find} onChange={(e) => setFind(e.target.value)} />
