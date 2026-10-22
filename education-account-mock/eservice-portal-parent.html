@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<title>MOE e-Service Portal — Education Account (Parent Mock)</title>
+<style>
+  :root{
+    --navy:#7A1F2B; --navy-2:#8A2538;
+    --blue:#A8343F; --blue-soft:#F9E3E5;
+    --red:#B3261E; --red-soft:#FDE3E3;
+    --sp-red:#D93841; --sp-red-hover:#B0262D;   /* Singpass Button Design Specification (1 Sep 2026) */
+    --green:#18794A; --green-soft:#E4F4EC;
+    --amber:#8F5F00; --amber-soft:#FDF1D6;
+    --purple:#6B46C1; --purple-soft:#F3EDFC;
+    --gray:#5E5658; --gray-soft:#F6F3F3;
+    --line:#E4DEDE;
+    --ink:#1A1512;
+    --radius:10px;
+    --shadow:0 1px 3px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.06);
+    --shadow-lg:0 10px 28px rgba(16,24,40,.16);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Inter Variable","Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:var(--ink);background:#F8F6F6;font-size:15px;line-height:1.55}
+  button{font:inherit;cursor:pointer}
+  input,select{font:inherit}
+
+  /* ---------- chrome ---------- */
+  .app-header{background:var(--navy);color:#fff}
+  .app-header .inner{max-width:1080px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .crest{width:38px;height:38px;border-radius:50%;background:#fff;color:var(--navy);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px}
+  .brand{flex:1;min-width:220px}
+  .brand b{display:block;font-size:16px}
+  .brand span{font-size:12px;opacity:.75}
+  .user-chip{display:flex;align-items:center;gap:10px;font-size:13px}
+  .user-chip .avatar{width:32px;height:32px;border-radius:50%;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
+  .user-chip button{background:none;border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:6px;padding:4px 10px;font-size:12.5px}
+
+  .sub-nav{background:#fff;border-bottom:1px solid var(--line)}
+  .sub-nav .inner{max-width:1080px;margin:0 auto;padding:0 20px;display:flex;gap:4px;overflow-x:auto}
+  .sub-nav a{padding:12px 14px;font-size:13.5px;font-weight:600;color:var(--gray);text-decoration:none;border-bottom:3px solid transparent;white-space:nowrap}
+  .sub-nav a.active{color:var(--blue);border-bottom-color:var(--blue)}
+
+  main{max-width:1080px;margin:0 auto;padding:26px 20px 60px}
+
+  /* ---------- generic ---------- */
+  .card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .card .card-h{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .card .card-h h3{font-size:15px}
+  .card .card-b{padding:18px}
+  h1.page{font-size:22px;margin-bottom:4px}
+  p.page-sub{color:var(--gray);font-size:13.5px;margin-bottom:22px}
+  .btn{border:none;border-radius:8px;padding:10px 16px;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:8px}
+  .btn-primary{background:var(--blue);color:#fff}
+  .btn-primary:hover{background:#7A1F2B}
+  .btn-danger{background:var(--red);color:#fff}
+  .btn-danger:hover{background:#c02525}
+  .btn-ghost{background:#fff;color:var(--blue);border:1px solid var(--blue)}
+  .btn-purple{background:var(--purple);color:#fff}
+  .btn-purple:hover{filter:brightness(.93)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn-sm{padding:7px 12px;font-size:13px}
+  .badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700}
+  .b-green{background:var(--green-soft);color:var(--green)}
+  .b-amber{background:var(--amber-soft);color:var(--amber)}
+  .b-red{background:var(--red-soft);color:var(--red)}
+  .b-gray{background:var(--gray-soft);color:var(--gray)}
+  .b-blue{background:var(--blue-soft);color:var(--blue)}
+  .b-purple{background:var(--purple-soft);color:var(--purple)}
+  .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+  .muted{color:var(--gray);font-size:13px}
+  .mono{font-variant-numeric:tabular-nums;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+  table.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+  table.tbl th{background:var(--gray-soft);text-align:left;padding:9px 12px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray);border-bottom:1px solid var(--line)}
+  table.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.tbl tr:last-child td{border-bottom:none}
+  .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .pos{color:var(--green);font-weight:600}
+  .neg{color:var(--red);font-weight:600}
+  .back-link{display:inline-flex;align-items:center;gap:6px;color:var(--blue);text-decoration:none;font-size:13.5px;font-weight:600;margin-bottom:14px}
+  .empty{padding:34px 20px;text-align:center;color:var(--gray)}
+  .empty .big{font-size:34px;margin-bottom:8px}
+
+  /* ---------- login ---------- */
+  .login-wrap{max-width:460px;margin:48px auto}
+  .login-logo{text-align:center;margin-bottom:18px}
+  /* Official button per Singpass Button Design Specification (effective 1 Sep 2026):
+     red variant — bg #D93841 / hover #B0262D, white logo, label "Log in with Singpass",
+     Poppins Bold 16px (system sans fallback), min-height 44px, 4px logo↔label gap.
+     The real integration must embed the OFFICIAL Singpass logo image asset. */
+  .singpass-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:4px;background:var(--sp-red);color:#fff;border:none;border-radius:8px;padding:12px 16px;font-size:16px;font-weight:700;min-height:44px}
+  .singpass-btn:hover{background:var(--sp-red-hover)}
+  .singpass-btn .sp-word{font-weight:800;font-size:17px;letter-spacing:-.02em}
+  .divider{display:flex;align-items:center;gap:12px;color:var(--gray);font-size:12px;margin:18px 0}
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  /* ---------- dashboard ---------- */
+  .stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px}
+  .stat{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+  .stat .lbl{font-size:12px;color:var(--gray);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+  .stat .val{font-size:22px;font-weight:700}
+  .child-card{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+  .child-id{min-width:200px;flex:1}
+  .child-id .nm{font-size:16px;font-weight:700}
+  .child-id .meta{font-size:13px;color:var(--gray);margin-top:2px}
+  .bal-box{min-width:180px}
+  .bal-box .lbl{font-size:11.5px;color:var(--gray);text-transform:uppercase;letter-spacing:.05em}
+  .bal-box .val{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
+  .child-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+  /* ---------- pills ---------- */
+  .pill-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .pill{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;color:var(--gray)}
+  .pill.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+
+  /* ---------- charges ---------- */
+  .charge{border:1px solid var(--line);border-radius:var(--radius);margin-bottom:14px;overflow:hidden;background:#fff}
+  .charge.overdue{border-color:#E8BFC3}
+  .charge-h{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:14px 16px;background:#FBFAFA;border-bottom:1px solid var(--line)}
+  .charge-h .ttl{font-weight:700;font-size:14.5px}
+  .charge-h .ref{font-size:12px;color:var(--gray)}
+  .charge-b{padding:14px 16px}
+  .charge-f{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--line);background:#FBFAFA}
+  .payable-big{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+  details.subsidy-note{margin-top:8px;font-size:12.5px;color:var(--gray)}
+  details.subsidy-note summary{cursor:pointer;color:var(--blue);font-weight:600}
+
+  /* ---------- modal / toast ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:20px;z-index:60}
+  .modal{background:#fff;border-radius:14px;max-width:480px;width:100%;box-shadow:var(--shadow-lg);max-height:92vh;overflow:auto}
+  .modal .m-h{padding:16px 20px;border-bottom:1px solid var(--line);font-weight:700;font-size:16px;display:flex;justify-content:space-between;align-items:center}
+  .modal .m-b{padding:20px}
+  .modal .m-f{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+  .kv{width:100%;border-collapse:collapse;font-size:13.5px;margin:8px 0}
+  .kv td{padding:7px 4px;border-bottom:1px dashed var(--line)}
+  .kv td:first-child{color:var(--gray)}
+  .kv td:last-child{text-align:right;font-weight:600}
+  .radio-card{display:flex;gap:10px;align-items:flex-start;border:1.5px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:9px;cursor:pointer}
+  .radio-card.sel{border-color:var(--blue);background:var(--blue-soft)}
+  .radio-card input{margin-top:3px}
+  .radio-card .t{font-weight:700;font-size:13.5px}
+  .radio-card .d{font-size:12.5px;color:var(--gray)}
+  .spinner{width:34px;height:34px;border:4px solid var(--blue-soft);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .toast-wrap{position:fixed;right:18px;bottom:92px;z-index:95;display:flex;flex-direction:column;gap:10px}
+  .toast{background:#3A0A12;color:#fff;border-radius:10px;padding:13px 16px;box-shadow:var(--shadow-lg);font-size:13.5px;max-width:360px;display:flex;gap:10px;align-items:flex-start;animation:slidein .25s ease}
+  .toast.ok{background:var(--green)} .toast.err{background:var(--red)}
+  @keyframes slidein{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+
+  .notice{border-radius:8px;padding:12px 14px;font-size:13.5px;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start}
+  .notice.warn{background:var(--amber-soft);color:#8F5F00}
+  .notice.info{background:var(--blue-soft);color:#8A2538}
+  .notice.err{background:var(--red-soft);color:#A8151C}
+  .notice.ai{background:var(--purple-soft);color:#4C2E8E}
+  .notice b{display:block;margin-bottom:2px}
+
+  /* ---------- AI chat widget ---------- */
+  .chat-fab{position:fixed;right:18px;bottom:18px;z-index:85;width:56px;height:56px;border-radius:50%;background:var(--purple);color:#fff;border:none;box-shadow:var(--shadow-lg);font-size:22px;display:none;align-items:center;justify-content:center}
+  .chat-fab:hover{filter:brightness(1.08)}
+  .chat-fab.show{display:flex}
+  .chat-fab .ping{position:absolute;top:-2px;right:-2px;background:var(--red);color:#fff;font-size:10px;font-weight:800;border-radius:999px;padding:2px 7px;border:2px solid #fff}
+  .chat-panel{position:fixed;right:18px;bottom:18px;z-index:88;width:min(400px,calc(100vw - 28px));height:min(560px,calc(100vh - 120px));background:#fff;border-radius:16px;box-shadow:var(--shadow-lg);display:none;flex-direction:column;overflow:hidden}
+  .chat-panel.show{display:flex}
+  .chat-h{background:var(--purple);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px}
+  .chat-h .ic{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:17px}
+  .chat-h .t b{display:block;font-size:14.5px}
+  .chat-h .t span{font-size:11.5px;opacity:.85}
+  .chat-h .tools{margin-left:auto;display:flex;gap:6px;align-items:center}
+  .chat-h .tools button{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:6px;font-size:11.5px;padding:4px 8px}
+  .chat-h .tools .x{font-size:14px;padding:4px 9px}
+  .chat-body{flex:1;overflow-y:auto;padding:14px;background:#FBFAF9;display:flex;flex-direction:column;gap:10px}
+  .msg{max-width:86%;border-radius:12px;padding:9px 12px;font-size:13.5px;white-space:pre-wrap}
+  .msg.ai{background:#fff;border:1px solid var(--line);border-top-left-radius:4px;align-self:flex-start}
+  .msg.user{background:var(--purple);color:#fff;border-top-right-radius:4px;align-self:flex-end}
+  .msg .msg-tag{display:inline-block;background:var(--purple-soft);color:var(--purple);font-size:10.5px;font-weight:700;border-radius:4px;padding:1px 6px;margin-bottom:5px}
+  .msg .msg-actions{display:flex;flex-direction:column;gap:6px;margin-top:9px}
+  .msg .msg-actions button{text-align:left;background:var(--purple);color:#fff;border:none;border-radius:7px;padding:7px 11px;font-size:12.5px;font-weight:600}
+  .msg .msg-actions button.ghost{background:#fff;color:var(--purple);border:1px solid var(--purple)}
+  .typing{display:inline-flex;gap:4px;padding:4px 2px}
+  .typing i{width:6px;height:6px;border-radius:50%;background:var(--purple);opacity:.4;animation:blink 1s infinite}
+  .typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,100%{opacity:.25}50%{opacity:1}}
+  .chat-chips{padding:8px 12px 4px;display:flex;gap:6px;flex-wrap:wrap;background:#FBFAF9;border-top:1px solid var(--line)}
+  .chat-chips button{background:#fff;border:1px solid var(--purple);color:var(--purple);border-radius:999px;font-size:12px;font-weight:600;padding:5px 11px}
+  .chat-f{display:flex;gap:8px;padding:10px 12px;background:#fff;border-top:1px solid var(--line)}
+  .chat-f input{flex:1;border:1.5px solid #DDD7D7;border-radius:9px;padding:9px 12px;font-size:13.5px}
+  .chat-f button{background:var(--purple);color:#fff;border:none;border-radius:9px;padding:0 15px;font-weight:700}
+  .chat-off{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;background:#FBFAF9}
+  .chat-off .box{max-width:300px;text-align:center;font-size:13.5px;color:var(--gray)}
+
+  /* ---------- FAS form ---------- */
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12.5px;font-weight:700;margin-bottom:5px;color:#2E2628}
+  .field label .req{color:var(--red)}
+  .field input[type=text],.field input[type=tel],.field select{width:100%;border:1.5px solid #DDD7D7;border-radius:8px;padding:9px 11px;font-size:13.5px;background:#fff}
+  .field input:read-only{background:var(--gray-soft);color:#5E5658}
+  .field.err input,.field.err select{border-color:var(--red);background:#FFFBFB}
+  .field .hint{font-size:11.5px;color:var(--gray);margin-top:3px}
+  .field.err .hint{color:var(--red);font-weight:600}
+  .ai-tag{display:inline-flex;align-items:center;gap:4px;background:var(--purple-soft);color:var(--purple);font-size:10.5px;font-weight:800;border-radius:4px;padding:1px 7px;margin-left:6px;vertical-align:1px}
+  .field.ro input{background:var(--gray-soft)}
+  .check-line{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:9px;cursor:pointer;background:#fff}
+  .check-line.on{border-color:var(--purple);background:var(--purple-soft)}
+  .check-line input{margin-top:3px}
+  .check-line .t{font-weight:700;font-size:13.5px}
+  .check-line .d{font-size:12.5px;color:var(--gray)}
+  .form-sec{margin-bottom:22px}
+  .form-sec h4{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  .decl{border:1.5px solid var(--line);border-radius:10px;padding:13px;display:flex;gap:10px;background:#FBFAFA;margin:16px 0}
+  .decl.err{border-color:var(--red);background:var(--red-soft)}
+  .form-err-box{border:1px solid #E8BFC3;background:var(--red-soft);color:#A8151C;border-radius:10px;padding:12px 14px;font-size:13.5px;margin-bottom:16px}
+
+  /* ---------- Singpass mock IdP (published flow: PAR→auth→callback→token→id_token) ---------- */
+  .browser{display:flex;flex-direction:column;min-height:430px}
+  .b-bar{display:flex;align-items:center;gap:8px;background:#E4DEDE;padding:10px 14px;border-bottom:1px solid var(--line)}
+  .b-dot{width:11px;height:11px;border-radius:50%;flex:none}
+  .b-dot.r{background:#FF5F57}.b-dot.y{background:#FEBC2E}.b-dot.g{background:#28C840}
+  .b-url{flex:1;background:#fff;border-radius:999px;font-size:10.5px;color:var(--gray);padding:5px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .b-body{padding:24px 22px;background:#fff;text-align:center}
+  .idp-logo{font-weight:800;font-size:24px;color:var(--sp-red);letter-spacing:-.02em}
+  .qr{position:relative;width:196px;height:196px;margin:14px auto;border:8px solid #fff;box-shadow:0 0 0 1px var(--line),var(--shadow);background:#fff}
+  .qr i{position:absolute;width:4.762%;height:4.762%;background:#1A1512}
+  .qr .finder{position:absolute;width:33.33%;height:33.33%;border:6px solid #1A1512;border-radius:4px}
+  .qr .finder::after{content:"";position:absolute;inset:15%;background:#1A1512;border-radius:2px}
+  .qr .f1{left:0;top:0}.qr .f2{right:0;top:0}.qr .f3{left:0;bottom:0}
+  .phone{max-width:290px;margin:0 auto;border:9px solid #1A1512;border-radius:26px;background:#fff;overflow:hidden;text-align:left}
+  .phone .p-h{background:var(--sp-red);color:#fff;font-weight:800;text-align:center;padding:10px;font-size:14px}
+  .phone .p-b{padding:14px 12px}
+  .trace{list-style:none;margin:16px 0 0;border:1px solid var(--line);border-radius:8px;padding:8px 14px;background:#FBFAFA;font-size:11.5px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;text-align:left}
+  .trace li{padding:6px 0 6px 20px;position:relative;border-bottom:1px dashed var(--line);color:var(--gray)}
+  .trace li:last-child{border-bottom:none}
+  .trace li::before{position:absolute;left:0;font-weight:800}
+  .trace li.ok{color:var(--ink)} .trace li.ok::before{content:"✓";color:var(--green)}
+  .trace li.run{color:var(--ink)} .trace li.run::before{content:"›";color:var(--blue)}
+  .trace li.fail{color:var(--red);font-weight:600} .trace li.fail::before{content:"✕";color:var(--red)}
+
+  details.cov{margin-top:34px}
+  details.cov summary{cursor:pointer;font-weight:700;color:var(--navy)}
+  details.cov .card{margin-top:10px}
+  .crumb{font-size:12.5px;color:var(--gray);margin-bottom:6px}
+  .ai-hero{background:linear-gradient(120deg,#4C2E8E,#6B46C1);color:#fff;border-radius:14px;padding:22px 24px;display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:22px}
+  .ai-hero .big{font-size:36px}
+  .ai-hero h2{font-size:19px;margin-bottom:4px}
+  .ai-hero p{font-size:13.5px;opacity:.9;max-width:560px}
+  @media (max-width:640px){ .bal-box .val{font-size:20px} table.tbl{font-size:12.5px} }
+  /* print only the offline form (R5), hide the rest of the page */
+  @media print{ body *{visibility:hidden} #offPrint,#offPrint *{visibility:visible} #offPrint{position:absolute;left:0;top:0;width:100%} }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="inner">
+    <div class="crest">MOE</div>
+    <div class="brand">
+      <b>MOE e-Service Portal</b>
+      <span>Education Account · for parents and guardians</span>
+    </div>
+    <div id="userChip"></div>
+  </div>
+</header>
+<nav class="sub-nav"><div class="inner" id="subNav"></div></nav>
+
+<main id="app"></main>
+
+<!-- AI assistant (mock) — E12: US-056 / US-057 -->
+  <button class="chat-fab" id="chatFab" onclick="toggleChat()" title="Ask the AI assistant">🤖<span class="ping" id="chatPing" style="display:none">1</span></button>
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-h">
+    <div class="ic">🤖</div>
+    <div class="t"><b>Ask MOE-AI</b><span>e-Service Portal helper · mock</span></div>
+    <div class="tools">
+      <button onclick="toggleAiUnavailable()" id="aiTglBtn" title="Demo control">Simulate unavailable</button>
+      <button class="x" onclick="toggleChat()">✕</button>
+    </div>
+  </div>
+  <div id="chatBodyWrap" style="display:flex;flex-direction:column;flex:1;min-height:0">
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-chips" id="chatChips"></div>
+    <div class="chat-f">
+      <input id="chatInput" placeholder="Ask about portal functions…" onkeydown="if(event.key==='Enter')chatSend()">
+      <button onclick="chatSend()">Send</button>
+    </div>
+  </div>
+  <div class="chat-off" id="chatOff" style="display:none">
+    <div class="box">
+ <div style="font-size:30px;margin-bottom:8px"></div>
+      <b>The assistant is unavailable right now.</b><br><br>
+      You can still use the portal normally and fill in the FAS application form by hand — nothing is blocked.<br><br>
+      <button class="btn btn-sm btn-purple" onclick="toggleAiUnavailable()">Turn the assistant back on (demo)</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+<div id="modalHost"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   PARENT e-SERVICE PORTAL — single-file mock.
+   Covers: US-019 (Singpass login), US-020 / E8 (children + balance),
+   E8 (transactions), E9 (outstanding charges, pay from balance),
+   and E12 AI (US-056–059): portal assistant + FAS form auto-fill,
+   plus the family FAS application basics (US-048/049).
+   All names / numbers are fictional.
+   ===================================================================== */
+const TODAY = "12 Oct 2026";
+
+const STUDENTS = {
+  C1: {
+    id:"C1", studentId:"G2001234X", name:"Tan Jia Hui", sex:"F", age:9, dob:"14 Mar 2017",
+    school:"Riverside Primary School", level:"Primary 3", klass:"P3-2",
+    citizenship:"Singapore Citizen",
+    account:{ no:"EA-2017-001234", status:"Active", opened:"21 Jul 2024", closed:null, closeReason:null },
+    ledger:[
+      { date:"21 Jul 2026", type:"Top-up",      desc:"Initial government top-up",        ref:"TU-2607-0231", amount: 200.50 },
+      { date:"12 Aug 2026", type:"Top-up",      desc:"Government top-up (Term 3)",       ref:"TU-2608-0876", amount: 158.00 },
+      { date:"04 Sep 2026", type:"Fee payment", desc:"Term 3 school fees",               ref:"CH-0912",      amount:-188.00 },
+      { date:"05 Oct 2026", type:"Top-up",      desc:"Government top-up (Term 4)",       ref:"TU-2610-1204", amount: 250.00 }
+    ],
+    charges:[
+      { id:"CH-1001", title:"Term 4 School Fees", term:"2026 Term 4", issued:"28 Sep 2026", due:"30 Oct 2026", status:"outstanding",
+        components:[
+          {name:"Tuition Fee",       amount:250.00, subsidy:100.00},
+          {name:"Miscellaneous Fee", amount:40.00,  subsidy:20.00},
+          {name:"Examination Fee",   amount:30.00,  subsidy:20.00} ]},
+      { id:"CH-1002", title:"Supplementary Programme", term:"2026 Term 4", issued:"01 Oct 2026", due:"13 Nov 2026", status:"outstanding",
+        components:[
+          {name:"Math Enrichment", amount:60.00, subsidy:0},
+          {name:"Materials",       amount:25.00, subsidy:0} ]},
+      { id:"CH-0912", title:"Term 3 School Fees", term:"2026 Term 3", issued:"20 Aug 2026", due:"04 Sep 2026",
+        status:"paid", paidOn:"04 Sep 2026", paidBy:"Education Account", receipt:"PAY-0904-7712",
+        components:[
+          {name:"Tuition Fee",       amount:250.00, subsidy:100.00},
+          {name:"Miscellaneous Fee", amount:38.00,  subsidy:0} ]}
+    ]
+  },
+  C2: {
+    id:"C2", studentId:"G2008987Y", name:"Tan Jun Kai", sex:"M", age:13, dob:"02 Jun 2013",
+    school:"Angsana Secondary School", level:"Secondary 1", klass:"S1-5",
+    citizenship:"Singapore Citizen",
+    account:{ no:"EA-2013-008977", status:"Active", opened:"21 Jul 2020", closed:null, closeReason:null },
+    ledger:[
+      { date:"21 Jul 2026", type:"Top-up",      desc:"Government top-up (Term 3)", ref:"TU-2607-0466", amount: 180.00 },
+      { date:"04 Sep 2026", type:"Fee payment", desc:"Term 3 school fees",         ref:"CH-2085",      amount: -85.00 }
+    ],
+    charges:[
+      { id:"CH-2101", title:"Term 4 School Fees", term:"2026 Term 4", issued:"28 Sep 2026", due:"30 Oct 2026", status:"outstanding",
+        components:[
+          {name:"Tuition Fee",       amount:280.00, subsidy:0},
+          {name:"Miscellaneous Fee", amount:50.00,  subsidy:0},
+          {name:"Examination Fee",   amount:45.00,  subsidy:0} ]},
+      { id:"CH-2094", title:"Term 3 Supplementary Fees", term:"2026 Term 3", issued:"20 Aug 2026", due:"28 Sep 2026", status:"overdue",
+        components:[
+          {name:"Co-curricular Attire", amount:70.00, subsidy:0},
+          {name:"Camp Fee",             amount:50.00, subsidy:0} ]},
+      { id:"CH-2085", title:"Term 3 School Fees", term:"2026 Term 3", issued:"18 Aug 2026", due:"04 Sep 2026",
+        status:"paid", paidOn:"04 Sep 2026", paidBy:"Education Account", receipt:"PAY-0904-7705",
+        components:[
+          {name:"Tuition Fee",       amount:60.00, subsidy:0},
+          {name:"Miscellaneous Fee", amount:25.00, subsidy:0} ]}
+    ]
+  },
+  C3: {
+    id:"C3", studentId:"G2020987Z", name:"Tan Xiao Mei", sex:"F", age:5, dob:"30 Nov 2020",
+    school:"Little Oaks Kindergarten", level:"K2", klass:"K2-B",
+    citizenship:"Singapore Citizen",
+    account:null, ledger:[], charges:[]
+  },
+  C4: {
+    id:"C4", studentId:"G2005678W", name:"Wong Kai En", sex:"M", age:16, dob:"15 Sep 2010",
+    school:"Angsana Secondary School", level:"Secondary 4", klass:"S4-2",
+    citizenship:"Singapore Citizen",
+    account:{ no:"EA-2010-005678", status:"Closed", opened:"15 Sep 2017", closed:"30 Sep 2026", closeReason:"Student reached age 16 — remaining balance transferred to CPF (mock)" },
+    ledger:[
+      { date:"15 Jul 2026", type:"Top-up",      desc:"Government top-up (Term 3)",        ref:"TU-2607-0518", amount: 100.00 },
+      { date:"29 Aug 2026", type:"Fee payment", desc:"Term 3 school fees",                ref:"CH-3002",      amount: -40.00 },
+      { date:"30 Sep 2026", type:"Transfer",    desc:"Balance transferred to CPF on account closure", ref:"TR-2609-0090", amount:-60.00 }
+    ],
+    charges:[
+      { id:"CH-3002", title:"Term 3 School Fees", term:"2026 Term 3", issued:"18 Aug 2026", due:"29 Aug 2026",
+        status:"paid", paidOn:"29 Aug 2026", paidBy:"Education Account", receipt:"PAY-0829-4461",
+        components:[
+          {name:"Miscellaneous Fee",   amount:25.00, subsidy:0},
+          {name:"Skills Programme",    amount:15.00, subsidy:0} ]}
+    ]
+  }
+};
+
+/* Parent profile — also feeds the AI form pre-fill (US-058: profile + chat answers) */
+const PARENTS = {
+  P1: { id:"P1", nric:"S7234567A", name:"Tan Wei Ming", lastLogin:"07 Oct 2026", children:["C1","C2","C3"],
+        profile:{ contact:"+65 9123 4567",
+                  residential:"Blk 216 Ang Mo Kio Ave 1, #12-345, Singapore 560216",
+                  mailing:"Blk 216 Ang Mo Kio Ave 1, #12-345, Singapore 560216" },
+        profileHistory:[] },
+  P2: { id:"P2", nric:"S8156789B", name:"Wong Li Ling", lastLogin:"23 Sep 2026", children:["C4"],
+        profile:{ contact:"+65 8234 5678",
+                  residential:"Blk 12 Queenstown Rd, #05-678, Singapore 102012",
+                  mailing:"PO Box 1234, Singapore 910123" },
+        profileHistory:[{date:"23 Sep 2026", field:"Mailing address", from:"Blk 12 Queenstown Rd, #05-678, Singapore 102012", to:"PO Box 1234, Singapore 910123"}] }
+};
+
+/* ---------------- R5 offline (paper) applications ----------------
+   A parent who cannot (or prefers not to) submit online generates a
+   PREFILLED offline application here. The printed form carries an
+   offline reference code; the school retrieves the declared details
+   by that code (or NRIC/name) to register the FAS application or to
+   verify information against the paper form.                      */
+const OFFLINE_FORMS = [
+  { code:"OFF-2026-0731", created:"06 Oct 2026", nric:"S7555001F", name:"Siti Rahayu",
+    children:"Nur Aisyah (P3-2)", school:"Riverside Primary School",
+    contact:"+65 8111 2222",
+    residential:"Blk 312 Jurong East St 32, #09-877, Singapore 600312", mailing:"",
+    householdSize:"6", employment:"Not employed", housing:"HDB 1–2 room",
+    status:"Collected by school — registered as FAS-2026-0113", collectedOn:"06 Oct 2026" }
+];
+
+/* =====================================================================
+   HELPERS
+   ===================================================================== */
+const $ = (s,el)=> (el||document).querySelector(s);
+const payableOf = c => c.components.reduce((s,x)=> s + Math.max(0, x.amount - x.subsidy), 0);
+const subsidyOf = c => c.components.reduce((s,x)=> s + (x.subsidy||0), 0);
+const feeOf     = c => c.components.reduce((s,x)=> s + x.amount, 0);
+function money(n){ const sign = n<0 ? "-" : ""; return sign + "S$" + Math.abs(n).toFixed(2); }
+function recompute(st){ let b=0; st.ledger.forEach(t=>{ b+=t.amount; t.bal=b; }); st._bal=b; }
+Object.values(STUDENTS).forEach(recompute);
+function esc(s){ return String(s).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+
+function toast(msg, kind){
+  const t=document.createElement("div");
+  t.className="toast "+(kind||"");
+ t.innerHTML = (kind==="ok"?"":kind==="err"?"":"") + msg;
+  $("#toasts").appendChild(t);
+  setTimeout(()=>{ t.style.opacity="0"; t.style.transition="opacity .4s"; setTimeout(()=>t.remove(),400); }, 4200);
+}
+function closeModal(){ $("#modalHost").innerHTML=""; spClearTimer(); }
+function modal(html){
+  $("#modalHost").innerHTML = '<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">'+html+'</div></div>';
+}
+function confirmModal(opts){
+  modal(
+    '<div class="m-h">'+esc(opts.title)+'<button class="btn btn-sm btn-ghost" style="border-color:#DDD7D7;color:#2E2628" onclick="closeModal()">✕</button></div>'+
+    '<div class="m-b">'+opts.body+'</div>'+
+    '<div class="m-f"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>'+
+    '<button class="btn '+(opts.okClass||"btn-primary")+'" id="mOk">'+esc(opts.okLabel||"Confirm")+'</button></div>'
+  );
+  $("#mOk").onclick = ()=>{ if($("#mOk").disabled) return; $("#mOk").disabled=true; opts.onOk(); };
+}
+
+/* =====================================================================
+   STATE + ROUTER
+   ===================================================================== */
+const state = {
+  parent: null,            // logged-in parent (P1/P2)
+  screen: "login",         // login | dashboard | transactions | charges | fas | profile
+  childId: null,
+  profileErrs: [],
+  ai: {                    // E12 mock assistant
+    open: false,
+    unavailable: false,    // demo toggle (AC-059-01)
+    msgs: [],              // {who:'ai'|'user', text, tag?, chips?, actions?}
+    gathered: {},          // answers collected in conversation (feeds US-058 pre-fill)
+    stage: null            // fas-q1 | fas-q2 | fas-q3 | pay-vague …
+  },
+  fas: {                   // family FAS application (E10 basics + E12 pre-fill)
+    status: "none",        // none | draft | submitted
+    refNo: null,
+    selectedChildren: [],
+    declared: false,
+    form: {},              // field key -> value
+ aiFields: [], // field keys pre-filled by AI (for the tag)
+    errors: []
+  }
+};
+
+function nav(screen, extra){
+  if(!state.parent && screen!=="login") screen = "login";
+  state.screen = screen;
+  Object.assign(state, extra||{});
+  render();
+}
+
+function render(){
+  renderChrome();
+  const app = $("#app");
+  if(!state.parent){ app.innerHTML = viewParentLogin(); }
+  else if(state.screen==="dashboard"){ app.innerHTML = viewDashboard(); }
+  else if(state.screen==="transactions"){ app.innerHTML = viewTransactions(); }
+  else if(state.screen==="charges"){ app.innerHTML = viewCharges(); }
+  else if(state.screen==="fas"){ app.innerHTML = viewFas(); }
+  else if(state.screen==="profile"){ app.innerHTML = viewProfile(); }
+  window.scrollTo(0,0);
+  renderChatShell();
+}
+
+function renderChrome(){
+  const chip = $("#userChip");
+  if(state.parent){
+    const p=state.parent;
+    chip.innerHTML = '<div class="user-chip">'+
+      '<div style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:4px 8px;border-radius:8px" onclick="nav(\'profile\')" title="View and edit my personal details">'+
+      '<div class="avatar">'+p.name.split(" ").map(w=>w[0]).slice(0,2).join("")+'</div>'+
+ '<div><b style="font-size:13px">'+esc(p.name)+'</b><br><span style="opacity:.7;font-size:11.5px">Singpass · '+esc(p.nric)+' · My details</span></div></div>'+
+      '<button onclick="logout()">Log out</button></div>';
+  } else chip.innerHTML = "";
+
+  const navEl = $("#subNav");
+  if(state.parent){
+    const link=(s,l)=>'<a class="'+(state.screen===s?"active":"")+'" href="#" onclick="nav(\''+s+'\');return false">'+l+'</a>';
+    navEl.innerHTML = link("dashboard","My Children")+link("transactions","Transactions")+link("charges","Outstanding Charges")+link("fas","Financial Assistance (FAS)")+link("profile","My Details");
+  } else navEl.innerHTML = "";
+}
+
+function logout(){
+  state.parent=null; state.screen="login"; state.childId=null; state.profileErrs=[];
+  state.ai={open:false,unavailable:false,msgs:[],gathered:{},stage:null};
+  state.fas={status:"none",refNo:null,selectedChildren:[],declared:false,form:{},aiFields:[],errors:[]};
+  toast("You have been logged out.");
+  render();
+}
+
+/* =====================================================================
+   LOGIN (mock Singpass)  [US-019]
+   ===================================================================== */
+function viewParentLogin(){
+  return `
+  <div class="login-wrap">
+    <div class="login-logo">
+      <div style="font-weight:800;font-size:30px;color:var(--sp-red);letter-spacing:-.02em;margin-bottom:10px">Singpass</div>
+      <h1 class="page" style="text-align:center">Welcome to the e-Service Portal</h1>
+      <p class="page-sub" style="text-align:center">Log in to view your children's Education Accounts</p>
+    </div>
+    <div class="card"><div class="card-b">
+      <button class="singpass-btn" onclick="spStart()">
+        <span class="sp-word">Singpass</span> Log in with Singpass
+      </button>
+      <div class="divider">MOCK — no real Singpass call</div>
+      <p class="muted" style="text-align:center">Demo identities on the (simulated) Singpass app:<br>
+        <b>Tan Wei Ming</b> · S7234567A — parent of 3 children<br>
+        <b>Wong Li Ling</b> · S8156789B — parent of 1 child<br>
+        <b>New user</b> · S9999999Y — not linked to MOE (error path)</p>
+    </div></div>
+    ${coverageTable()}
+  </div>`;
+}
+
+/* =====================================================================
+   SINGPASS LOGIN (mock) — implemented in the order published at
+   docs.developer.singpass.gov.sg (Singpass Login · OIDC / FAPI 2.0):
+   1. POST /fapi/par (Pushed Authorization Request) → request_uri (60 s)
+   2. Browser redirect to /fapi/auth?client_id&request_uri → user scans QR
+      with the Singpass app (biometrics / passcode) — up to 10 minutes
+   3. Redirect back to redirect_uri with code + state + iss
+   4. POST /fapi/token — PKCE (S256) + client_assertion (private_key_jwt)
+      + DPoP proof → access_token (30 min) + id_token (code expires 60 s)
+   5. Decrypt & verify id_token → sub + uinfin
+   6. Link uinfin to the MOE parent profile → session created
+   Staging endpoints are shown because this is a demo.
+   ===================================================================== */
+const SP = {
+  par:"https://stg-id.singpass.gov.sg/fapi/par",
+  auth:"https://stg-id.singpass.gov.sg/fapi/auth",
+  token:"https://stg-id.singpass.gov.sg/fapi/token",
+  iss:"https://stg-id.singpass.gov.sg/fapi",
+  client:"M0EeServicePortalDemoAppID1234",
+  redirect:"https://eservice.moe.gov.sg/auth/callback"
+};
+const SP_USERS=[
+  {nric:"S7234567A", name:"Tan Wei Ming", note:"Parent of 3 children"},
+  {nric:"S8156789B", name:"Wong Li Ling", note:"Parent of 1 child (closed account demo)"},
+  {nric:"S9999999Y", name:"New Singpass user", note:"Not linked to any MOE parent profile (error path)"}
+];
+let spTimer=null, spSecs=60, spNric=null;
+function spClearTimer(){ if(spTimer){ clearInterval(spTimer); spTimer=null; } }
+function spBrowser(url,inner){
+ modal('<div class="browser"><div class="b-bar"><span class="b-dot r"></span><span class="b-dot y"></span><span class="b-dot g"></span><span class="b-url">'+esc(url)+'</span></div><div class="b-body" id="spBody">'+inner+'</div></div>');
+}
+function qrHtml(){
+  let s=42; const rnd=()=>{ s=(s*9301+49297)%233280; return s/233280; };
+  let cells="";
+  for(let y=0;y<21;y++) for(let x=0;x<21;x++){
+    const inFinder=(x<7&&y<7)||(x>13&&y<7)||(x<7&&y>13);
+    if(!inFinder && rnd()>0.52) cells+='<i style="left:'+(x*4.762).toFixed(2)+'%;top:'+(y*4.762).toFixed(2)+'%"></i>';
+  }
+  return '<div class="qr">'+cells+'<span class="finder f1"></span><span class="finder f2"></span><span class="finder f3"></span></div>';
+}
+
+/* Steps 1–2: PAR was pushed; the browser lands on the Singpass authorize
+   page showing a QR code for the app. */
+function spStart(){
+  spNric=null; spSecs=60;
+  spBrowser(SP.auth+"?client_id="+SP.client+"&request_uri=urn:ietf:params:oauth:request_uri:8xK…",
+    '<div class="idp-logo">Singpass</div>'+
+    '<p style="font-size:15px;font-weight:700;margin-top:10px">Log in with Singpass</p>'+
+    '<p class="muted" style="margin:4px 0 0">Scan the QR code with the Singpass app on your phone</p>'+
+    qrHtml()+
+    '<p class="muted" style="margin:0">QR refreshes in <b id="spCount">60</b> s · whole login valid for 10 min</p>'+
+    '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px">'+
+ '<button class="btn btn-danger" onclick="spApp()">Simulate scanning with the app</button>'+
+      '<button class="btn btn-ghost" onclick="spCancel()">Cancel</button>'+
+    '</div>'+
+    '<p class="muted" style="margin-top:14px;font-size:11.5px">Mock of id.singpass.gov.sg — the request was pushed via PAR (RFC 9126):<br>POST '+SP.par+' → request_uri (valid 60 s)</p>');
+  spTimer=setInterval(()=>{
+    const el=$("#spCount"); if(!el){ spClearTimer(); return; }
+    el.textContent=--spSecs;
+    if(spSecs<=0){ spClearTimer(); $("#spBody").innerHTML='<div style="padding:30px 0"><div style="font-size:34px">⌛</div><p style="font-weight:700;margin-top:8px">The login session expired</p><p class="muted">Please start again.</p><button class="btn btn-danger" style="margin-top:14px" onclick="spStart()">Try again</button></div>'; }
+  },1000);
+}
+
+/* Step 2 (continued): the Singpass app — pick identity, verify biometrics. */
+function spApp(){
+  spClearTimer();
+  spBrowser("singpass-app://login (Singpass mobile app)",
+    '<div class="phone"><div class="p-h">Singpass app</div><div class="p-b">'+
+      '<p style="font-size:13.5px;font-weight:700">MOE e-Service Portal is requesting your identity</p>'+
+      '<p class="muted" style="font-size:12px;margin:4px 0 10px">Choose the account on this (demo) device, then verify with biometrics.</p>'+
+      SP_USERS.map((u,i)=>'<label class="radio-card'+(i===0?" sel":"")+'" onclick="document.querySelectorAll(\'.phone .radio-card\').forEach(r=>r.classList.remove(\'sel\'));this.classList.add(\'sel\')"><input type="radio" name="spu" '+(i===0?"checked":"")+'><span><span class="t">'+esc(u.name)+'</span><br><span class="d">'+esc(u.nric)+' · '+esc(u.note)+'</span></span></label>').join("")+
+ '<button class="btn btn-danger" style="width:100%" onclick="spVerify(this)">Verify with face</button>'+
+      '<p class="muted" style="font-size:11px;text-align:center;margin-top:8px">Biometrics / passcode in the real app</p>'+
+    '</div></div>');
+}
+
+/* Step 3: redirect back to the relying party with code + state + iss. */
+function spVerify(btn){
+  const sel=document.querySelector('.phone input[name="spu"]:checked');
+  const idx=[...document.querySelectorAll('.phone input[name="spu"]')].indexOf(sel);
+  spNric=SP_USERS[idx<0?0:idx].nric;
+  btn.outerHTML='<div style="text-align:center;padding:10px 0"><div class="spinner"></div><p style="margin-top:10px;font-size:13px">Verifying your face…</p></div>';
+  setTimeout(()=>{
+ $("#spBody").innerHTML='<div style="padding:26px 0"><div style="font-size:40px"></div><p style="font-weight:700;margin-top:8px">Face verified</p><p class="muted">Returning to MOE e-Service Portal…</p></div>';
+    setTimeout(spCallback,900);
+  },1100);
+}
+function spCallback(){
+  const code="cbk_"+Math.random().toString(36).slice(2,10);
+  const st="8f2b1c-"+Math.random().toString(36).slice(2,8);
+  spBrowser(SP.redirect+"?code="+code+"&state="+st+"&iss="+encodeURIComponent(SP.iss),
+ '<div style="font-size:30px"></div>'+
+    '<p style="font-weight:700;margin-top:6px">Signing you in…</p>'+
+    '<p class="muted" style="margin:2px 0 0">The portal server completes the login (mock trace)</p>'+
+    '<ul class="trace" id="spTrace"></ul>');
+  const steps=[
+    "callback received: code="+code+" · state="+st+" · iss verified ✓",
+    "POST "+SP.token+" — grant_type=authorization_code · PKCE S256 · client_assertion (private_key_jwt) · DPoP proof",
+    "→ access_token (30 min) + id_token received",
+    "decrypt & verify id_token → sub, uinfin="+spNric,
+  ];
+  let i=0;
+  const tick=()=>{
+    if(i>0){ const prev=$("#spTrace") && $("#spTrace").children[i-1]; if(prev) prev.className="ok"; }
+    if(i>=steps.length){ spFinish(); return; }
+    const T=$("#spTrace"); if(!T) return;
+    const li=document.createElement("li"); li.className="run"; li.textContent=steps[i]; T.appendChild(li); i++;
+    spTimer=setTimeout(tick,750);
+  };
+  tick();
+}
+
+/* Steps 4–6: token exchange done — link the uinfin to a parent profile. */
+function spFinish(){
+  const T=$("#spTrace");
+  const parent=Object.values(PARENTS).find(p=>p.nric===spNric);
+  const li=document.createElement("li");
+  if(parent){
+    li.className="ok"; li.textContent="link uinfin → MOE parent profile: "+parent.name+" — session created ✓";
+    T.appendChild(li);
+    setTimeout(()=>{
+      state.parent=parent; state.childId=parent.children[0]; state.screen="dashboard";
+ aiPush("ai","Hello "+parent.name.split(" ")[0]+" I'm the portal assistant (mock AI). Ask me how anything works — paying fees, checking a balance, transactions, or applying for financial assistance.",
+        null,["How do I pay a fee?","Where is my child's balance?","I want to apply for FAS"]);
+      closeModal();
+      toast("Signed in as "+parent.name+" via Singpass (mock).","ok");
+      render();
+      $("#chatPing").style.display="inline-block";
+    },900);
+  } else {
+    li.className="fail"; li.textContent="link uinfin → MOE parent profile: NOT FOUND for "+spNric;
+    T.appendChild(li);
+    setTimeout(()=>{
+      $("#spBody").innerHTML=
+ '<div style="padding:10px 0"><div style="font-size:34px"></div>'+
+        '<p style="font-weight:700;margin-top:8px;color:var(--red)">No linked parent profile</p>'+
+        '<p class="muted" style="max-width:380px;margin:6px auto 0">Singpass authentication succeeded, but this NRIC is not linked to any parent profile in MOE. Access is denied and no session is created.</p>'+
+        '<div style="display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap">'+
+        '<button class="btn btn-ghost" onclick="spStart()">Use another Singpass account</button></div>';
+    },900);
+  }
+}
+
+/* Cancelled login → error redirect back to the relying party. */
+function spCancel(){
+  spClearTimer();
+  spBrowser(SP.redirect+"?error=access_denied&state=8f2b1c-…",
+ '<div style="font-size:34px">↩</div>'+
+    '<p style="font-weight:700;margin-top:8px">Login cancelled</p>'+
+    '<p class="muted">Singpass redirected back with <span class="mono">error=access_denied</span> — no session was created.</p>'+
+    '<button class="btn btn-primary" style="margin-top:12px" onclick="closeModal()">Back to the e-Service Portal</button>');
+}
+
+/* =====================================================================
+   DASHBOARD  [US-020 / E8: children + balance]
+   ===================================================================== */
+function childBadge(st){
+  if(!st.account) return '<span class="badge b-gray"><span class="dot"></span>No account</span>';
+  if(st.account.status==="Active") return '<span class="badge b-green"><span class="dot"></span>Active</span>';
+  return '<span class="badge b-gray"><span class="dot"></span>Closed</span>';
+}
+
+function viewDashboard(){
+  const p = state.parent;
+  const kids = p.children.map(id=>STUDENTS[id]);
+  const activeKids = kids.filter(s=>s.account && s.account.status==="Active");
+  const totalBal = activeKids.reduce((s,k)=>s+k._bal,0);
+  const totalOut = kids.reduce((s,k)=> s + k.charges.filter(c=>c.status!=="paid").reduce((a,c)=>a+payableOf(c),0), 0);
+  const overdueCount = kids.reduce((s,k)=> s + k.charges.filter(c=>c.status==="overdue").length, 0);
+
+  return `
+  <div class="crumb">Signed in ${TODAY} · last login ${esc(p.lastLogin)}</div>
+  <h1 class="page">Good afternoon, ${esc(p.name.split(" ")[0])}</h1>
+  <p class="page-sub">Children linked to your Singpass profile are shown below.</p>
+
+  <div class="ai-hero">
+ <div class="big"></div>
+    <div style="flex:1;min-width:240px">
+      <h2>Not sure how something works?</h2>
+      <p>Ask the AI assistant about any portal function — it can also collect a few details and pre-fill your FAS application for you.</p>
+    </div>
+    <button class="btn" style="background:#fff;color:var(--purple)" onclick="toggleChat()">Ask MOE-AI</button>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat"><div class="lbl">Children linked</div><div class="val">${kids.length}</div><div class="muted">${activeKids.length} with active Education Account</div></div>
+    <div class="stat"><div class="lbl">Combined account balance</div><div class="val" style="color:var(--green)">${money(totalBal)}</div><div class="muted">across active accounts</div></div>
+    <div class="stat"><div class="lbl">Total outstanding charges</div><div class="val" style="color:${totalOut>0?"var(--red)":"inherit"}">${money(totalOut)}</div><div class="muted">${overdueCount? overdueCount+" overdue — action needed":"nothing overdue"}</div></div>
+  </div>
+
+  ${kids.map(childCard).join("")}
+  ${coverageTable()}`;
+}
+
+function childCard(st){
+  let right, actions;
+  if(!st.account){
+    right = `<div class="bal-box"><div class="lbl">Education Account</div><div class="val" style="font-size:15px;color:var(--gray)">—</div></div>`;
+ actions = `<div class="notice info" style="margin:0"><span><b>No Education Account yet</b>Accounts are created automatically when a Singapore Citizen child turns 7 — ${esc(st.name)} will turn 7 on 30 Nov 2027.</span></div>`;
+  } else {
+    right = `<div class="bal-box"><div class="lbl">Balance · ${esc(st.account.no)}</div><div class="val" style="color:${st._bal>0?"var(--green)":"inherit"}">${money(st._bal)}</div><div class="muted">Status: ${esc(st.account.status)}${st.account.status==="Closed"?" · closed "+st.account.closed:""}</div></div>`;
+    const open = st.charges.filter(c=>c.status!=="paid");
+    actions = `
+      <div class="child-actions">
+        <button class="btn btn-primary btn-sm" onclick="nav('charges',{childId:'${st.id}'})">View outstanding charges${open.length?` (${open.length})`:""}</button>
+        <button class="btn btn-ghost btn-sm" onclick="nav('transactions',{childId:'${st.id}'})">View transactions</button>
+      </div>
+ ${st.account.status==="Closed"?`<div class="notice info" style="margin:10px 0 0"><span><b>This account is closed.</b>${esc(st.account.closeReason)}</span></div>`:""}`;
+  }
+  return `
+  <div class="card" style="margin-bottom:16px"><div class="card-b">
+    <div class="child-card">
+      <div class="child-id">
+        <div class="nm">${esc(st.name)} ${childBadge(st)}</div>
+        <div class="meta">${esc(st.sex==="F"?"Female":"Male")} · ${st.age} years old (DOB ${esc(st.dob)})<br>
+        ${esc(st.level)} · Class ${esc(st.klass)} · ${esc(st.school)}<br>
+        Student ID <span class="mono">${esc(st.studentId)}</span> · ${esc(st.citizenship)}</div>
+      </div>
+      ${right}
+      <div style="flex:100%;width:100%">${actions}</div>
+    </div>
+  </div></div>`;
+}
+
+/* =====================================================================
+   TRANSACTIONS  [E8: US-041]
+   ===================================================================== */
+function viewTransactions(){
+  const st = STUDENTS[state.childId];
+  const kids = state.parent.children.map(id=>STUDENTS[id]).filter(s=>s.account);
+  const rows = [...st.ledger].reverse();
+  return `
+  <a class="back-link" href="#" onclick="nav('dashboard');return false">← Back to My Children</a>
+  <h1 class="page">Transactions</h1>
+  <p class="page-sub">Top-ups, fee payments and transfers, newest first.</p>
+  <div class="pill-row">${kids.map(k=>`<button class="pill ${k.id===st.id?"active":""}" onclick="nav('transactions',{childId:'${k.id}'})">${esc(k.name)}</button>`).join("")}</div>
+ ${!st.account ? `<div class="card"><div class="empty"><div class="big"></div>No Education Account for this child.</div></div>` : `
+  <div class="card">
+    <div class="card-h"><h3>${esc(st.name)} · ${esc(st.account.no)}</h3>${childBadge(st)}
+      <span style="margin-left:auto" class="muted">Closing balance shown for each entry</span></div>
+    ${rows.length? `<div style="overflow:auto"><table class="tbl">
+      <tr><th>Date</th><th>Type</th><th>Description</th><th>Reference</th><th class="num">Amount</th><th class="num">Balance after</th></tr>
+      ${rows.map(t=>`<tr>
+        <td style="white-space:nowrap">${esc(t.date)}</td>
+        <td><span class="badge ${t.type==="Top-up"?"b-blue":t.type==="Fee payment"?"b-amber":"b-gray"}">${esc(t.type)}</span></td>
+        <td>${esc(t.desc)}</td>
+        <td class="mono">${esc(t.ref)}</td>
+        <td class="num ${t.amount>0?"pos":"neg"}">${t.amount>0?"+":""}${money(t.amount)}</td>
+        <td class="num">${money(t.bal)}</td>
+      </tr>`).join("")}
+    </table></div>`
+ : `<div class="empty"><div class="big"></div>No transactions yet on this account.</div>`}
+  </div>`}
+  ${coverageTable()}`;
+}
+
+/* =====================================================================
+   OUTSTANDING CHARGES  [E9: US-043 + US-044]
+   ===================================================================== */
+function viewCharges(){
+  const st = STUDENTS[state.childId];
+  const kids = state.parent.children.map(id=>STUDENTS[id]).filter(s=>s.account);
+  const open = st.charges.filter(c=>c.status!=="paid");
+  const paid = st.charges.filter(c=>c.status==="paid");
+  const totalOpen = open.reduce((a,c)=>a+payableOf(c),0);
+  const anyOverdue = open.some(c=>c.status==="overdue");
+  const active = st.account && st.account.status==="Active";
+  const shortfallAll = active && totalOpen > st._bal;
+
+  return `
+  <a class="back-link" href="#" onclick="nav('dashboard');return false">← Back to My Children</a>
+  <h1 class="page">Outstanding charges</h1>
+  <p class="page-sub">Fees assigned to your child in this system, with any FAS subsidy applied.</p>
+  <div class="pill-row">${kids.map(k=>`<button class="pill ${k.id===st.id?"active":""}" onclick="nav('charges',{childId:'${k.id}'})">${esc(k.name)}${k.charges.some(c=>c.status!=="paid")?" ●":""}</button>`).join("")}</div>
+
+  <div class="stat-row">
+    <div class="stat"><div class="lbl">Account balance</div><div class="val" style="color:var(--green)">${money(st._bal||0)}</div><div class="muted">${esc(st.name)} · ${st.account?esc(st.account.no):"—"}</div></div>
+    <div class="stat"><div class="lbl">Total outstanding</div><div class="val" style="color:${totalOpen>0?"var(--red)":"var(--green)"}">${money(totalOpen)}</div><div class="muted">${open.length} charge${open.length===1?"":"s"} unpaid</div></div>
+  </div>
+
+ ${anyOverdue?`<div class="notice err"><span><b>Overdue charges</b>At least one charge has passed its due date. Please pay to avoid further follow-up.</span></div>`:""}
+ ${shortfallAll?`<div class="notice warn"><span><b>Balance lower than total outstanding</b>The Education Account balance (${money(st._bal)}) does not cover all outstanding charges (shortfall ${money(totalOpen-st._bal)}). You can pay each charge from the balance if it covers it, or pay online.</span></div>
+ <div class="notice ai"><span><b>Need help with fees?</b>You may qualify for the Financial Assistance Scheme (FAS). <a href="#" onclick="nav('fas');return false" style="font-weight:700">Apply for FAS</a> — or ask the assistant to pre-fill it for you.</span></div>`:""}
+ ${!active?`<div class="notice info"><span><b>This account is ${st.account?esc(st.account.status.toLowerCase()):"not available"}</b>Payment from the Education Account is not available. ${st.account&&st.account.closeReason?esc(st.account.closeReason):""}</span></div>`:""}
+
+  ${open.length? open.map(c=>chargeCard(st,c)).join("")
+ : `<div class="card"><div class="empty"><div class="big"></div>${st.account&&st.account.status==="Closed"?"This account is closed — nothing to pay.":"Nothing due — you are all caught up!"}</div></div>`}
+
+  ${paid.length? `
+  <details class="cov" ${open.length?"":"open"}><summary>Payment history & receipts (${paid.length})</summary>
+    <div class="card" style="margin-top:10px"><div style="overflow:auto"><table class="tbl">
+      <tr><th>Charge</th><th>Term</th><th class="num">Amount payable</th><th>Paid on</th><th>Method</th><th>Receipt</th></tr>
+      ${paid.map(c=>`<tr>
+        <td><b>${esc(c.title)}</b><br><span class="mono muted">${esc(c.id)}</span></td>
+        <td>${esc(c.term)}</td>
+        <td class="num">${money(payableOf(c))}</td>
+        <td>${esc(c.paidOn)}</td><td>${esc(c.paidBy)}</td><td class="mono">${esc(c.receipt)}</td>
+      </tr>`).join("")}
+    </table></div></div>
+  </details>`:""}
+  ${coverageTable()}`;
+}
+
+function chargeCard(st,c){
+  const pay = payableOf(c);
+  const canEA = st.account && st.account.status==="Active";
+  const statusBadge = c.status==="overdue" ? '<span class="badge b-red"><span class="dot"></span>Overdue</span>'
+                 : c.status==="paid" ? '<span class="badge b-green"><span class="dot"></span>Paid</span>'
+                 : '<span class="badge b-amber"><span class="dot"></span>Outstanding</span>';
+  return `
+  <div class="charge ${c.status==="overdue"?"overdue":""}">
+    <div class="charge-h">
+      <div style="flex:1;min-width:220px"><div class="ttl">${esc(c.title)} &nbsp;${statusBadge}</div>
+      <div class="ref">Charge ID <span class="mono">${esc(c.id)}</span> · ${esc(c.term)} · issued ${esc(c.issued)} · due <b style="color:${c.status==="overdue"?"var(--red)":"inherit"}">${esc(c.due)}</b></div></div>
+    </div>
+    <div class="charge-b">
+      <div style="overflow:auto"><table class="tbl">
+        <tr><th>Fee component</th><th class="num">Fee amount</th><th class="num">FAS subsidy</th><th class="num">Amount payable</th></tr>
+        ${c.components.map(x=>`<tr>
+          <td>${esc(x.name)}</td>
+          <td class="num">${money(x.amount)}</td>
+          <td class="num" style="color:${x.subsidy?"var(--green)":"var(--gray)"}">${x.subsidy? "− "+money(x.subsidy):"—"}</td>
+          <td class="num" style="font-weight:700">${money(Math.max(0,x.amount-x.subsidy))}</td>
+        </tr>`).join("")}
+        <tr style="background:#FBFAFA"><td style="font-weight:700">Total</td><td class="num">${money(feeOf(c))}</td><td class="num">− ${money(subsidyOf(c))}</td><td class="num" style="font-weight:800;color:var(--navy)">${money(pay)}</td></tr>
+      </table></div>
+      ${subsidyOf(c)>0?`<details class="subsidy-note"><summary>Why is there a subsidy?</summary>Financial Assistance Scheme (FAS) subsidy granted for this charge is shown per component. The amount payable already reflects it.</details>`:""}
+    </div>
+    <div class="charge-f">
+      <div class="muted">Payable by <b>${esc(c.due)}</b></div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span class="payable-big">${money(pay)}</span>
+        ${canEA?`<button class="btn btn-primary" onclick="openPay('${st.id}','${c.id}')">Pay from Education Account</button>
+                 <button class="btn btn-ghost" onclick="openOnline('${st.id}','${c.id}')">Pay online</button>`
+               :`<span class="muted">Account ${st.account?esc(st.account.status):"—"} — payment unavailable</span>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------- Pay from Education Account [US-044 / AC-044, AC-020-03, AC-046-01] ---------- */
+function openPay(cid, chid){
+  const st = STUDENTS[cid], c = st.charges.find(x=>x.id===chid);
+  if(c.status==="paid"){ toast("This charge is already paid.", "err"); return; }   // AC-044-02
+  const pay = payableOf(c);
+  if(st._bal < pay){                                                               // AC-020-03 / AC-046-01
+    modal(
+      '<div class="m-h">Balance too low</div>'+
+ '<div class="m-b"><div class="notice err" style="margin-top:0"><span><b>Payment from balance not possible</b>The Education Account balance does not cover this charge.</span></div>'+
+      '<table class="kv">'+
+        '<tr><td>Amount payable</td><td>'+money(pay)+'</td></tr>'+
+        '<tr><td>Account balance</td><td>'+money(st._bal)+'</td></tr>'+
+        '<tr><td><b>Shortfall</b></td><td style="color:var(--red)"><b>'+money(pay-st._bal)+'</b></td></tr>'+
+      '</table><p class="muted">You can pay the full amount online instead (card, PayNow or NETS).</p></div>'+
+      '<div class="m-f"><button class="btn btn-ghost" onclick="closeModal()">Close</button>'+
+      '<button class="btn btn-primary" onclick="closeModal();openOnline(\''+cid+'\',\''+chid+'\')">Pay online instead</button></div>'
+    );
+    return;
+  }
+  confirmModal({
+    title:"Pay from Education Account",
+    body:
+      '<p style="font-size:13.5px;margin-bottom:6px">You are paying for <b>'+esc(st.name)+'</b>:</p>'+
+      '<table class="kv">'+
+        '<tr><td>Charge</td><td>'+esc(c.title)+' <span class="mono muted">('+esc(c.id)+')</span></td></tr>'+
+        '<tr><td>Amount payable</td><td>'+money(pay)+'</td></tr>'+
+        '<tr><td>Account balance now</td><td>'+money(st._bal)+'</td></tr>'+
+        '<tr><td>Balance after payment</td><td style="color:var(--green)">'+money(st._bal-pay)+'</td></tr>'+
+      '</table><p class="muted">The charge will be marked paid and a transaction recorded on the account.</p>',
+    okLabel:"Confirm payment",
+    onOk(){ settlePayment(cid, chid, "Education Account"); }
+  });
+}
+
+/* ---------- Online payment mock (Visa/Master, PayNow, NETS — per meeting notes) ---------- */
+function openOnline(cid, chid){
+  const st = STUDENTS[cid], c = st.charges.find(x=>x.id===chid);
+  if(c.status==="paid"){ toast("This charge is already paid.", "err"); return; }
+  modal(
+    '<div class="m-h">Pay online <span class="badge b-red">MOCK</span></div>'+
+    '<div class="m-b">'+
+      '<table class="kv" style="margin-top:0">'+
+        '<tr><td>Child</td><td>'+esc(st.name)+'</td></tr>'+
+        '<tr><td>Charge</td><td>'+esc(c.title)+' <span class="mono muted">('+esc(c.id)+')</span></td></tr>'+
+        '<tr><td>Amount payable</td><td>'+money(payableOf(c))+'</td></tr>'+
+      '</table>'+
+      '<p style="font-size:13.5px;font-weight:600;margin-bottom:8px">Choose a payment method:</p>'+
+ '<label class="radio-card sel" onclick="pickPay(this)"><input type="radio" name="pm" checked><span><span class="t">Credit / Debit card</span><br><span class="d">Visa · Mastercard</span></span></label>'+
+ '<label class="radio-card" onclick="pickPay(this)"><input type="radio" name="pm"><span><span class="t">PayNow</span><br><span class="d">Scan the QR with your banking app</span></span></label>'+
+ '<label class="radio-card" onclick="pickPay(this)"><input type="radio" name="pm"><span><span class="t">NETS QR</span><br><span class="d">Singapore QR</span></span></label>'+
+      '<p class="muted" style="margin-top:10px">Simulated gateway — nothing is charged.</p>'+
+    '</div>'+
+    '<div class="m-f"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>'+
+    '<button class="btn btn-primary" id="mOk" onclick="doOnlinePay(\''+cid+'\',\''+chid+'\')">Pay '+money(payableOf(c))+'</button></div>'
+  );
+}
+function pickPay(el){ document.querySelectorAll(".radio-card").forEach(r=>r.classList.remove("sel")); el.classList.add("sel"); }
+function doOnlinePay(cid, chid){
+  const method = ["Credit / Debit card","PayNow","NETS QR"][
+    [...document.querySelectorAll('input[name="pm"]')].findIndex(r=>r.checked)] || "Online";
+  modal('<div class="m-b" style="text-align:center;padding:34px"><div class="spinner"></div><p style="margin-top:14px">Contacting payment gateway <span class="muted">(mock)…</span></p></div>');
+  setTimeout(()=> settlePayment(cid, chid, "Online payment · "+method), 1200);
+}
+
+/* ---------- Settlement: updates balances, charge, ledger; guards double-pay ---------- */
+let paying = {};
+function settlePayment(cid, chid, methodLabel){
+  const st = STUDENTS[cid], c = st.charges.find(x=>x.id===chid);
+  if(paying[chid] || c.status==="paid"){ closeModal(); return; } // AC-044-03 double confirm
+  paying[chid] = true;
+  const pay = payableOf(c);
+  if(methodLabel==="Education Account"){
+    st.ledger.push({ date:TODAY, type:"Fee payment", desc:c.title, ref:c.id, amount:-pay });
+    recompute(st);
+  } else {
+    st.ledger.push({ date:TODAY, type:"Fee payment", desc:c.title+" (paid online — "+methodLabel.replace("Online payment · ","")+")", ref:c.id, amount:0, bal:st._bal, onlineOnly:true });
+  }
+  c.status="paid"; c.paidOn=TODAY; c.paidBy=methodLabel; c.receipt="PAY-1012-"+Math.floor(1000+Math.random()*9000);
+  delete paying[chid];
+  closeModal();
+  toast("Payment successful — "+money(pay)+" for “"+c.title+"”. "+(methodLabel==="Education Account"?"New balance: "+money(st._bal)+". ":"")+"Receipt "+c.receipt+".", "ok");
+  render();
+}
+
+/* =====================================================================
+   AI ASSISTANT (mock)  [E12: US-056 ask questions, US-057 follow-ups]
+   Rule-based demo engine — no real model call.
+   ===================================================================== */
+function toggleChat(){
+  state.ai.open = !state.ai.open;
+  if(state.ai.open) $("#chatPing").style.display="none";
+  renderChatShell();
+}
+function toggleAiUnavailable(){
+  state.ai.unavailable = !state.ai.unavailable;
+  if(state.ai.unavailable){
+    aiPush("ai","The assistant is unavailable right now (simulated). You can still fill in the FAS form by hand — nothing is blocked.",null,[]);
+  }
+  renderChatShell();
+}
+function renderChatShell(){
+  const fab=$("#chatFab"), panel=$("#chatPanel");
+  if(!state.parent){ fab.classList.remove("show"); panel.classList.remove("show"); return; }
+  fab.classList.remove("show"); panel.classList.add("show");   // panel replaces the fab while open
+  if(!state.ai.open) panel.classList.remove("show"), fab.classList.add("show");
+  $("#chatOff").style.display = state.ai.unavailable ? "flex" : "none";
+  $("#chatBodyWrap").style.display = state.ai.unavailable ? "none" : "flex";
+  renderChatMsgs();
+}
+function renderChatMsgs(){
+  const body=$("#chatBody"); if(!body) return;
+  body.innerHTML = state.ai.msgs.map(m=>{
+    if(m.who==="user") return '<div class="msg user">'+esc(m.text)+'</div>';
+    let h='<div class="msg ai">';
+    if(m.tag) h+='<span class="msg-tag">'+esc(m.tag)+'</span>';
+    h+=esc(m.text);
+    if(m.actions&&m.actions.length){
+      h+='<div class="msg-actions">'+m.actions.map(a=>'<button class="'+(a.ghost?"ghost":"")+'" onclick="'+a.act.replace(/"/g,"&quot;")+'">'+esc(a.label)+'</button>').join("")+'</div>';
+    }
+    return h+'</div>';
+  }).join("");
+  const chipsEl=$("#chatChips");
+  const lastAi=[...state.ai.msgs].reverse().find(m=>m.who==="ai");
+  chipsEl.innerHTML=(lastAi&&lastAi.chips&&lastAi.chips.length&&!state.ai.unavailable)
+    ? lastAi.chips.map(c=>'<button onclick="chatQuick(this.textContent)">'+esc(c)+'</button>').join("")
+    : "";
+  if(typeof body.scrollTop==="number") body.scrollTop=body.scrollHeight;
+}
+function aiPush(who,text,tag,chips,actions){
+  state.ai.msgs.push({who,text,tag,chips:chips||[],actions:actions||[]});
+  renderChatMsgs();
+}
+function chatSend(){
+  const inp=$("#chatInput"); if(!inp) return;
+  const t=inp.value.trim(); if(!t) return;
+  inp.value="";
+  aiHandle(t);
+}
+function chatQuick(text){ aiHandle(text); }
+
+function aiHandle(text){
+  aiPush("user",text);
+  const thinking=()=>{ $("#chatBody").insertAdjacentHTML("beforeend",'<div class="msg ai" id="typingMsg"><span class="typing"><i></i><i></i><i></i></span></div>'); const b=$("#chatBody"); if(typeof b.scrollTop==="number") b.scrollTop=b.scrollHeight; };
+  const reply=(...a)=>{ const tm=$("#typingMsg"); if(tm) tm.remove(); aiPush("ai",...a); };
+  if(state.ai.unavailable){ reply("The assistant is unavailable right now. Please try again later."); return; }
+  thinking();
+  setTimeout(()=>reply(...aiThink(text)), 600);
+}
+
+/* ---- fuzzy tolerance for the chat input: correct typos against an intent
+   vocabulary before matching (e.g. "balnace" → "balance", "pya" → "pay").
+   Tokens that already match, contain digits, or are beyond the distance
+   threshold are left untouched. */
+const AI_VOCAB=["pay","payment","fee","balance","transaction","history","owe","outstanding","charge","account","close","closed","cpf","topup","top-up","singpass","fas","financial","assistance","moefas","sbfas","subsidy","apply","income","address","phone","contact","update","tax","passport","restart","cancel","stop","child","children","school","portal","transaction"];
+function aiNorm(s){
+  return String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+         .replace(/[^a-z0-9 -]+/g," ").replace(/\s+/g," ").trim();
+}
+function aiLev(a,b,k){
+  /* Damerau-Levenshtein (optimal string alignment) — counts adjacent
+     transpositions ("pya"→"pay" = 1), bounded by k */
+  if(Math.abs(a.length-b.length)>k) return k+1;
+  let p2=null, p1=[], cur=[];
+  for(let j=0;j<=b.length;j++) p1[j]=j;
+  for(let i=1;i<=a.length;i++){
+    cur=[i]; let best=i;
+    for(let j=1;j<=b.length;j++){
+      const cost=a[i-1]===b[j-1]?0:1;
+      let v=Math.min(p1[j]+1, cur[j-1]+1, p1[j-1]+cost);
+      if(i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1]) v=Math.min(v,(p2? p2[j-2]:k+1)+1);
+      cur[j]=v; if(v<best) best=v;
+    }
+    if(best>k) return k+1;
+    p2=p1; p1=cur; cur=[];
+  }
+  return p1[b.length];
+}
+function fuzzyCorrect(text){
+  return String(text).split(/(\s+)/).map(tok=>{
+    if(!tok || /^\s+$/.test(tok)) return tok;
+    const t=aiNorm(tok);
+    if(!t || /\d/.test(t)) return tok;
+    const stems=[t, t.replace(/s$/,""), t.replace(/ing$/,""), t.replace(/ing$/,"e"), t.replace(/ed$/,"")];
+    for(const s of stems){
+      if(AI_VOCAB.indexOf(s)>=0) return s;
+      const pref=AI_VOCAB.find(v=> t.length>=3 && v.indexOf(t)===0 );
+      if(pref) return pref;
+    }
+    const k = t.length<=4 ? 1 : 2;
+    let best=null, bd=99;
+    for(const v of AI_VOCAB){
+      const d=aiLev(t,v,k);
+      if(d<bd){ bd=d; best=v; }
+    }
+    return (best && bd<=k) ? best : tok;
+  }).join("");
+}
+
+/* ---- the mock brain: returns [text, tag, chips, actions] ---- */
+function aiThink(text){
+  const t=fuzzyCorrect(text).toLowerCase();
+  const p=state.parent, kids=p.children.map(id=>STUDENTS[id]);
+
+  /* 1) privacy guard — never shows other families' data (AC-056-03) */
+  const foreign=kids.every(k=>!t.includes(k.name.toLowerCase().split(" ")[0]) && !t.includes(k.name.toLowerCase()));
+  const knownOthers=["lim xue er","wong kai en","neighbour","neighbor","other family","my friend","classmate"];
+  if(foreign && knownOthers.some(n=>t.includes(n))){
+    return ["I'm sorry, I can only help with your own family's accounts and information in this portal. I can't show or discuss another family's data.",
+      "Privacy", ["Where is my child's balance?","How do I pay a fee?"]];
+  }
+
+  /* 2) restart / cancel works at any point of a conversation */
+  if(/\b(restart|start over|start again|cancel|stop|nevermind|never mind)\b/.test(t)){
+    const wasFas = (state.ai.stage && state.ai.stage.indexOf("fas")===0) || /\bfas\b|financial|answers/.test(t);
+    state.ai.gathered = {};
+    state.ai.stage = wasFas ? "fas-q1" : null;
+    return wasFas
+      ? ["No problem — let's start again. How many family members live in your household, including yourself?",null,["5","4","6"]]
+      : ["OK, I've cleared that. Ask me anything else about the portal.",null,[]];
+  }
+
+  /* 3) mid-conversation follow-ups (US-057).
+     A pending follow-up only accepts short answers; a longer / question-like
+     message is treated as a new topic and the pending question is dropped. */
+  let digress=false;
+  const isQuestion = t.includes("?") || t.length>32;
+  if(state.ai.stage){
+    const s=state.ai.stage;
+    if(s==="pay-vague"){
+      state.ai.stage=null;
+      if(t.includes("balance")||t.includes("account")) return payFromEaAnswer();
+      if(t.includes("online")||t.includes("card")||t.includes("paynow")||t.includes("nets")) return payOnlineAnswer();
+      return payFullAnswer();
+    }
+    if(s==="fas-q1"){
+      const n=parseInt(t.replace(/[^0-9]/g,""),10);
+      if(!n||n<1||n>20){ if(isQuestion){digress=true;} else return ["Sorry, how many household members is that? Please give a number (for example: 5).",null,["5","6","4"]]; }
+      else{
+        state.ai.gathered.householdSize=String(n);
+        state.ai.stage="fas-q2";
+        return ["Got it — "+n+" household members. And what best describes your current employment status?",null,
+          ["Employed","Self-employed","Not employed","Retired"]];
+      }
+    }
+    if(s==="fas-q2"){
+      const map={"self":"Self-employed","not employed":"Not employed","unemployed":"Not employed","retired":"Retired","employed":"Employed"};
+      const hit=Object.keys(map).find(k=>t.includes(k));
+      if(!hit){ if(isQuestion){digress=true;} else return ["Sorry, which of these best describes your employment status?",null,["Employed","Self-employed","Not employed","Retired"]]; }
+      else{
+        state.ai.gathered.employment=map[hit];
+        state.ai.stage="fas-q3";
+        return ["Thank you. Last question — what type of housing does your household live in?",null,
+          ["HDB 1–2 room","HDB 3-room & above","Private"]];
+      }
+    }
+    if(s==="fas-q3"){
+      const map={"1":"HDB 1–2 room","2":"HDB 1–2 room","3":"HDB 3-room & above","private":"Private","condo":"Private","landed":"Private"};
+      const hit=Object.keys(map).find(k=>t.includes(k)) || (t.includes("hdb")?"HDB 3-room & above":null);
+      if(!hit){ if(isQuestion){digress=true;} else return ["Sorry, which housing type is it?",null,["HDB 1–2 room","HDB 3-room & above","Private"]]; }
+      else{
+        state.ai.gathered.housing = map[hit]!==undefined ? map[hit] : hit;
+        state.ai.stage=null;
+ return ["That's everything I need \nI can now pre-fill the family FAS application for you. Your profile details (name, NRIC, contact, address) and these answers will be filled in — you review and edit everything before submitting.",
+          "Ready to pre-fill", null,
+ [{label:"Open pre-filled FAS application", act:"nav('fas');fasPrefill();"},
+           {label:"Tell me about FAS first", act:"aiHandleDirect('what is fas')", ghost:true}]];
+      }
+    }
+  }
+  if(digress){ state.ai.stage=null; }
+
+  /* 4) FAS intents */
+  if(/\b(fas|financial assistance|moefas|sbfas|subsidy|subsidies|assistance)\b/.test(t)||t.includes("apply for help")||t.includes("cannot afford")||t.includes("difficulty paying")||t.includes("need help with fees")){
+    if(t.includes("what is fas")||t.includes("what is the fas")||t.includes("difference")||t.includes("tell me about fas")){
+      return ["The Financial Assistance Scheme (FAS) helps families with school fees:\n\n• MOEFAS — assessed by MOE rules first, using official household income bands.\n• School-based FAS — if MOEFAS is not granted, your child's school reviews the application and decides.\n\nA student receives one or the other, never both. Any subsidy granted is shown directly on your outstanding charges.",
+        null, ["I want to apply for FAS","How is my income checked?"]];
+    }
+    if(t.includes("income")||t.includes("how is my")){
+      return ["You don't need to key in income figures. During assessment the system retrieves your official household and per-capita income bands from a third-party income service (queried by NRIC). Only the ranges are used — never exact amounts.",
+        null, ["I want to apply for FAS"]];
+    }
+    const g=state.ai.gathered;
+    if(g.householdSize&&g.employment&&g.housing){   // AC-057-02: don't ask twice
+      return ["I already have your answers (household of "+g.householdSize+", "+g.employment+", "+g.housing+"). You can open the pre-filled application, or change an answer first.",
+        "Already collected", null,
+ [{label:"Open pre-filled FAS application", act:"nav('fas');fasPrefill();"},
+         {label:"Change my answers", act:"aiHandleDirect('restart fas answers')", ghost:true}]];
+    }
+    state.ai.stage="fas-q1";
+    return ["I can help you apply for the Financial Assistance Scheme as one family application. I'll ask "+fasQuestionsRemaining()+" short questions and then pre-fill the form for you.\n\nFirst: how many family members live in your household, including yourself?",
+      "FAS application", ["5","4","6"]];
+  }
+
+  /* 4) payment — vague gets a follow-up (AC-057-01) */
+  if(/\bpay\b|payment|fee/.test(t)){
+    if(/^(\s*)(how do i pay|how to pay|pay how|help me pay|can i pay)\??\s*$/.test(t) || t==="pay"){
+      state.ai.stage="pay-vague";
+      return ["Happy to explain! Which way would you like to pay?",
+        null, ["From the Education Account balance","Online (card / PayNow / NETS)"]];
+    }
+    if(t.includes("online")||t.includes("card")||t.includes("paynow")||t.includes("nets")) return payOnlineAnswer();
+    if(t.includes("balance")||t.includes("account")) return payFromEaAnswer();
+    return payFullAnswer();
+  }
+
+  /* 5) balance */
+  if(t.includes("balance")||t.includes("how much")||t.includes("money left")){
+    return ["You can see each child's Education Account balance on the dashboard (“My Children”), and per-charge amounts under Outstanding Charges.\n\n"+kids.filter(k=>k.account).map(k=>"• "+k.name+": "+money(k._bal)).join("\n")+"\n\nBalances update immediately after a top-up or payment.",
+      "Your data", null,
+      [{label:"Open My Children", act:"nav('dashboard')", ghost:true},
+       {label:"View outstanding charges", act:"nav('charges',{childId:'"+(state.childId&&STUDENTS[state.childId].account?state.childId:kids.find(k=>k.account).id)+"'})", ghost:true}]];
+  }
+
+  /* 6) transactions */
+  if(t.includes("transaction")||t.includes("history")||t.includes("statement")||t.includes("where the money")){
+    return ["Every Education Account keeps a full transaction list — top-ups, fee payments and transfers — newest first, with the running balance after each entry.\n\nGo to Transactions in the top menu, then pick the child.",
+      null, [{label:"Open Transactions", act:"nav('transactions',{childId:'"+(state.childId&&STUDENTS[state.childId].account?state.childId:kids.find(k=>k.account).id)+"'})", ghost:true}]];
+  }
+
+  /* 7) outstanding / owe */
+  if(t.includes("owe")||t.includes("outstanding")||t.includes("due")||t.includes("charges")){
+    const rows=kids.map(k=>({k,out:k.charges.filter(c=>c.status!=="paid").reduce((a,c)=>a+payableOf(c),0)})).filter(r=>r.out>0);
+ return ["Outstanding charges are listed per child under Outstanding Charges, with each fee component, any FAS subsidy and the total payable.\n\n"+(rows.length?rows.map(r=>"• "+r.k.name+": "+money(r.out)).join("\n"):"Nothing is outstanding — all caught up! "),
+      "Your data", null,
+      rows.length?[{label:"Open Outstanding Charges", act:"nav('charges',{childId:'"+rows[0].k.id+"'})", ghost:true}]:[]];
+  }
+
+  /* 8) account creation / age 7 */
+  if(t.includes("account")&&(t.includes("create")||t.includes("open")||t.includes("7")||t.includes("when")) && !/clos|16|cpf/.test(t)){
+    return ["Education Accounts are created automatically when a Singapore Citizen child turns 7 — you don't need to apply. The account then stays open until age 16.\n\nIf a child of yours is over 7 and has no account, contact MOE via the enquiry page.",
+      null, ["When does the account close?","Where is my child's balance?"]];
+  }
+
+  /* 9) closure / CPF */
+  if(t.includes("16")||t.includes("close")||t.includes("closed")||t.includes("cpf")){
+    return ["When a student turns 16, the Education Account closes automatically. Any remaining balance is transferred to CPF (mock behaviour shown in Transactions, e.g. Wong Kai En's account).\n\nAfter closure the account can no longer top up or pay fees — history stays viewable.",
+      null, ["Where is my child's balance?"]];
+  }
+
+  /* 10) top-up */
+  if(t.includes("top-up")||t.includes("topup")||t.includes("top up")||t.includes("government")){
+    return ["Top-ups come from the government's Education Account fund and are credited automatically — you don't top up yourself. They appear in Transactions as “Top-up” entries.\n\nIf a top-up looks missing, wait 1 working day, then contact MOE.",
+      null, ["Show my transactions","Where is my child's balance?"]];
+  }
+
+  /* 11) update personal details (US-042 flavour) */
+  if(t.includes("address")||t.includes("phone")||t.includes("contact")||t.includes("update my")){
+    return ["You can update your residential address, mailing address and contact number from your profile. Name, NRIC and date of birth are read-only for security — contact MOE to change those.",
+      null, ["I want to apply for FAS"]];
+  }
+
+  /* 12) out of scope (AC-056-02) */
+  if(/tax|passport|ica|immigration|hospital|clinic|driving|traffic|visa/.test(t)){
+    return ["I'm sorry, that's outside what I can help with — I only cover this e-Service portal's functions (accounts, balances, transactions, fee payment and FAS applications).\n\nFor other government matters, please visit the relevant agency's website, or contact MOE for education questions.",
+      "Out of scope", ["What can you help with?","How do I pay a fee?"]];
+  }
+
+  /* 13) capabilities */
+  if(t.includes("what can you")||t.includes("help me with")||t.includes("who are you")){
+    return ["I'm the portal's mock AI assistant. I can:\n\n• Explain how every portal function works\n• Walk you through paying a charge\n• Answer questions about Education Accounts and FAS\n• Ask a few questions and pre-fill your FAS application",
+      null, ["How do I pay a fee?","I want to apply for FAS","Where is my child's balance?"]];
+  }
+
+  /* 14) fallback */
+  return ["I'm not sure I understood that. I can help with portal functions — balances, transactions, paying fees, Education Accounts and FAS applications. Could you rephrase, or pick a topic below?",
+    null, ["How do I pay a fee?","Where is my child's balance?","I want to apply for FAS","What can you help with?"]];
+}
+
+function fasQuestionsRemaining(){
+  const g=state.ai.gathered; let n=0;
+  if(!g.householdSize) n++; if(!g.employment) n++; if(!g.housing) n++;
+  return String(n);
+}
+function payFullAnswer(){
+ return ["There are two ways to pay a charge:\n\n1⃣ From the Education Account — free and instant. Open Outstanding Charges → “Pay from Education Account”. Works when the balance covers the charge.\n\n2⃣ Online — card, PayNow or NETS. Use “Pay online” on the same screen; you'll get a receipt.\n\nIf the balance is too low, the portal tells you the shortfall and offers online payment for the full amount.",
+    null, [{label:"Open Outstanding Charges", act:"nav('charges',{childId:'"+(state.childId&&STUDENTS[state.childId].account?state.childId:state.parent.children.map(id=>STUDENTS[id]).find(k=>k.account).id)+"'})", ghost:true}]];
+}
+function payFromEaAnswer(){ return payFullAnswer(); }
+function payOnlineAnswer(){ return payFullAnswer(); }
+function aiHandleDirect(text){ aiHandle(text); }
+
+/* =====================================================================
+   FAMILY FAS APPLICATION  [E10 basics + E12 AI pre-fill]
+   US-048 (choose children), US-049 (submit + declaration),
+   US-051 (draft), US-058 (pre-fill), US-059 (works without AI)
+   ===================================================================== */
+function viewFas(){
+  const f=state.fas, p=state.parent;
+  if(f.status==="submitted"){
+    return `
+    <a class="back-link" href="#" onclick="nav('dashboard');return false">← Back to My Children</a>
+    <h1 class="page">Financial Assistance — application submitted</h1>
+    <p class="page-sub">Family application as one unit; each child is assessed separately.</p>
+    <div class="card"><div class="card-b">
+ <div class="notice info" style="margin-top:0"><span><b>Reference ${esc(f.refNo)}</b>Submitted ${TODAY} · status <span class="badge b-blue">Submitted</span></span></div>
+      <table class="kv">
+        <tr><td>Applicant</td><td>${esc(p.name)} (${esc(p.nric)})</td></tr>
+        <tr><td>Children included</td><td>${f.selectedChildren.map(id=>esc(STUDENTS[id].name)).join(", ")}</td></tr>
+        <tr><td>Household size</td><td>${esc(f.form.householdSize||"—")}</td></tr>
+        <tr><td>Employment status</td><td>${esc(f.form.employment||"—")}</td></tr>
+        <tr><td>Housing type</td><td>${esc(f.form.housing||"—")}</td></tr>
+      </table>
+      <div class="form-sec" style="margin-top:18px"><h4>Assessment (mock preview)</h4>
+ <div class="notice ai"><span><b>What happens next</b>MOEFAS is assessed first using official income bands. If not granted, your child's school decides on school-based FAS. A student receives one, never both. Any subsidy granted appears directly on the outstanding charges.</span></div>
+      <table class="tbl">
+        <tr><th>Child</th><th>School</th><th>Status</th></tr>
+        ${f.selectedChildren.map(id=>{const s=STUDENTS[id];return `<tr><td><b>${esc(s.name)}</b></td><td>${esc(s.school)}</td><td><span class="badge b-amber"><span class="dot"></span>Submitted — assessment in progress</span></td></tr>`;}).join("")}
+      </table>
+ <div class="notice info"><span><b>Income service (mock)</b>Household band: <b>S$2,000 – S$3,999</b> · Per-capita band: <b>below S$800</b> · retrieved ${TODAY}. Only ranges are used, never exact amounts.</span></div>
+      </div>
+    </div></div>
+    ${coverageTable()}`;
+  }
+
+  const kids=p.children.map(id=>STUDENTS[id]);
+  const g=state.ai.gathered;
+  /* R8/US-042: personal details edited under "My Details" are auto-filled
+     here on a fresh application — every field stays manually editable. */
+  if(f.status==="none" && !f.form.__init){
+    f.form.__init=true;
+    ["contact","residential","mailing"].forEach(k=>{ if(p.profile[k]){ f.form[k]=p.profile[k]; f.aiFields.push(k); } });
+  }
+  const F=f.form, E=f.errors;
+  const err=k=>E.includes(k);
+ const aiTag=k=>f.aiFields.includes(k)?'<span class="ai-tag">'+(["contact","residential","mailing"].includes(k)?"auto-filled":"from assistant")+'</span>':"";
+
+  return `
+  <a class="back-link" href="#" onclick="nav('dashboard');return false">← Back to My Children</a>
+  <h1 class="page">Financial Assistance Scheme (FAS)</h1>
+  <p class="page-sub">One family application covers all the children you include. Each child is assessed separately.</p>
+
+ ${state.ai.unavailable?`<div class="notice warn"><span><b>AI assistant unavailable</b>You can complete this form by hand — the application works fully without the assistant.</span></div>`
+ :(g.householdSize&&g.employment&&g.housing&&!f.aiFields.length?`<div class="notice ai"><span><b>The assistant has your answers</b>Click below to pre-fill the form from your profile and the chat answers. <button class="btn btn-sm btn-purple" style="margin:6px 0 0" onclick="fasPrefill();render()">Pre-fill my application</button></span></div>`:"")}
+
+ ${f.status==="draft"?`<div class="notice info"><span><b>Draft saved</b>Your progress is kept — continue and submit when ready.</span></div>`:""}
+
+ <div class="notice info"><span><b>Prefer paper? Apply offline instead (R5)</b>Generate a prefilled offline application — print it, complete anything left blank, sign and submit at your child's school. The school officer retrieves your details using the offline reference code on the form and verifies the rest with you. <button class="btn btn-sm btn-purple" style="margin:6px 0 0" onclick="offlineOpen()">Prepare offline form</button></span></div>
+
+  <div class="card"><div class="card-b">
+ ${E.length?`<div class="form-err-box">Please complete the highlighted fields before submitting:<br>${E.map(e=>"• "+fasFieldLabel(e)).join("<br>")}</div>`:""}
+
+    <div class="form-sec"><h4>1 · Children to include <span class="req" style="color:var(--red)">*</span></h4>
+      ${kids.map(k=>{
+        const on=f.selectedChildren.includes(k.id);
+        if(!k.account){
+          return `<label class="check-line" style="opacity:.55;cursor:not-allowed;background:var(--gray-soft);border-style:dashed">
+            <input type="checkbox" disabled>
+            <span><span class="t">${esc(k.name)} ${childBadge(k)}</span><br>
+            <span class="d">${esc(k.level)} · ${esc(k.school)} — no Education Account yet, so this child cannot be included in a FAS application</span></span>
+          </label>`;
+        }
+        return `<label class="check-line ${on?"on":""}" style="${err("children")?"border-color:var(--red)":""}">
+          <input type="checkbox" ${on?"checked":""} onchange="fasToggleChild('${k.id}')">
+          <span><span class="t">${esc(k.name)} ${childBadge(k)}</span><br>
+          <span class="d">${esc(k.level)} · ${esc(k.school)} — ${k.charges.some(c=>c.status!=="paid")? money(k.charges.filter(c=>c.status!=="paid").reduce((a,c)=>a+payableOf(c),0))+" outstanding":"no outstanding charges"}</span></span>
+        </label>`;}).join("")}
+      ${err("children")?'<div class="field err"><div class="hint">Select at least one child.</div></div>':""}
+    </div>
+
+    <div class="form-sec"><h4>2 · Applicant &amp; contact (from your profile)</h4>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0 16px">
+        <div class="field ro"><label>Full name (as per NRIC)</label><input type="text" readonly value="${esc(p.name)}"></div>
+        <div class="field ro"><label>NRIC</label><input type="text" readonly value="${esc(p.nric)}"></div>
+      </div>
+      <div class="field ${err("contact")?"err":""}"><label>Contact number <span class="req">*</span> ${aiTag("contact")}</label>
+        <input type="tel" value="${esc(F.contact||"")}" oninput="fasSet('contact',this.value)" placeholder="+65 …">
+        <div class="hint">${err("contact")?"A valid contact number is required.":"Auto-filled from your profile — edit here if needed. MOE uses this to reach you."}</div></div>
+      <div class="field ${err("residential")?"err":""}"><label>Residential address ${aiTag("residential")}</label>
+        <input type="text" value="${esc(F.residential||"")}" oninput="fasSet('residential',this.value)">
+        <div class="hint">${err("residential")?"Residential address is required.":"&nbsp;"}</div></div>
+      <div class="field"><label>Mailing address (if different) ${aiTag("mailing")}</label>
+        <input type="text" value="${esc(F.mailing||"")}" oninput="fasSet('mailing',this.value)">
+        <div class="hint">Leave blank to use the residential address.</div></div>
+    </div>
+
+ <div class="form-sec"><h4>3 · Household details ${f.aiFields.length?'<span class="ai-tag">from assistant</span>':""}</h4>
+      <div class="field ${err("householdSize")?"err":""}"><label>Household size (including yourself) <span class="req">*</span> ${aiTag("householdSize")}</label>
+        <input type="text" value="${esc(F.householdSize||"")}" oninput="fasSet('householdSize',this.value)" placeholder="e.g. 5">
+        <div class="hint">${err("householdSize")?"Household size is required.":"Number of family members living together."}</div></div>
+      <div class="field ${err("employment")?"err":""}"><label>Employment status <span class="req">*</span> ${aiTag("employment")}</label>
+        <select onchange="fasSet('employment',this.value)">
+          <option value="">— select —</option>
+          ${["Employed","Self-employed","Not employed","Retired"].map(o=>`<option ${F.employment===o?"selected":""}>${o}</option>`).join("")}
+        </select>
+        ${err("employment")?'<div class="hint">Employment status is required.</div>':""}</div>
+      <div class="field"><label>Housing type ${aiTag("housing")}</label>
+        <select onchange="fasSet('housing',this.value)">
+          <option value="">— select —</option>
+          ${["HDB 1–2 room","HDB 3-room & above","Private"].map(o=>`<option ${F.housing===o?"selected":""}>${o}</option>`).join("")}
+        </select></div>
+ <div class="notice info"><span><b>Income — nothing to key in</b>Official household and per-capita income bands are retrieved from the third-party income service during assessment (queried by NRIC). Only ranges are used, never exact amounts.</span></div>
+    </div>
+
+    <div class="decl ${err("declaration")?"err":""}">
+      <input type="checkbox" style="margin-top:3px" ${f.declared?"checked":""} onchange="state.fas.declared=this.checked">
+      <span style="font-size:13.5px">I declare that the information in this application is true and complete. I authorise MOE to verify the details with official sources. <span class="req" style="color:var(--red)">*</span>
+      ${err("declaration")?'<div style="color:var(--red);font-weight:600;margin-top:4px">You must accept the declaration to submit.</div>':""}</span>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="fasSubmit()">Submit application</button>
+      <button class="btn btn-ghost" onclick="fasSaveDraft()">Save as draft</button>
+      ${f.aiFields.length?'<button class="btn btn-purple" style="margin-left:auto" onclick="fasClearPrefill()">Clear AI pre-fill</button>':""}
+    </div>
+  </div></div>
+  ${coverageTable()}`;
+}
+
+function fasFieldLabel(k){
+  return {children:"Children to include",contact:"Contact number",residential:"Residential address",
+          householdSize:"Household size",employment:"Employment status",declaration:"Declaration"}[k]||k;
+}
+function fasSet(k,v){ state.fas.form[k]=v; }
+function fasToggleChild(id){
+  if(!STUDENTS[id].account) return;   // a child without an Education Account cannot be included
+  const f=state.fas, i=f.selectedChildren.indexOf(id);
+  if(i>=0) f.selectedChildren.splice(i,1); else f.selectedChildren.push(id);
+  render();
+}
+function fasPrefill(){                                   // US-058-01/02/03
+  const p=state.parent, g=state.ai.gathered, f=state.fas;
+  f.aiFields=[];
+  const put=(k,v)=>{ if(v){ f.form[k]=v; f.aiFields.push(k); } };
+  put("contact",p.profile.contact);
+  put("residential",p.profile.residential);
+  put("mailing",p.profile.mailing);
+  put("householdSize",g.householdSize);
+  put("employment",g.employment);
+  put("housing",g.housing);
+  if(!f.selectedChildren.length) f.selectedChildren=p.children.filter(id=>STUDENTS[id].account);   // only children with an Education Account
+  toast("Application pre-filled from your profile and the assistant's answers — please review every field.","ok");
+}
+function fasClearPrefill(){
+  state.fas.aiFields=[];
+  state.fas.form={};
+  toast("AI pre-fill cleared — the form is blank again.");
+  render();
+}
+function fasSaveDraft(){                                  // US-051-01
+  state.fas.status="draft";
+  toast("Draft saved — you can continue any time.","ok");
+  render();
+}
+
+/* ---------- R5: prefilled offline (paper) application ----------
+   Everything already known (profile + any answers given here or to
+   the assistant) is printed on the form; blanks are filled in by
+   hand. The offline reference code lets the school pull the same
+   data on their side instead of re-keying the paper form.        */
+function offlineOpen(){
+  const p=state.parent, f=state.fas, g=state.ai.gathered;
+  const included=(f.selectedChildren.length? f.selectedChildren : p.children.filter(id=>STUDENTS[id].account));
+  const kids=included.map(id=>STUDENTS[id].name+" ("+STUDENTS[id].klass+")").join(", ");
+  const school=included.length? STUDENTS[included[0]].school : "—";
+  const code="OFF-2026-"+String(Math.floor(1000+Math.random()*9000));
+  OFFLINE_FORMS.push({ code:code, created:TODAY, nric:p.nric, name:p.name, children:kids, school:school,
+    contact:f.form.contact||p.profile.contact, residential:f.form.residential||p.profile.residential,
+    mailing:f.form.mailing||p.profile.mailing,
+    householdSize:f.form.householdSize||g.householdSize||"", employment:f.form.employment||g.employment||"",
+    housing:f.form.housing||g.housing||"", status:"Awaiting school collection", collectedOn:null });
+  const blank="______________________";
+  const row=(k,v)=>'<tr><td>'+k+'</td><td>'+(v?esc(v):blank)+'</td></tr>';
+  modal(
+    '<div class="m-h">Offline FAS application<button class="btn btn-sm btn-ghost" style="border-color:#DDD7D7;color:#2E2628" onclick="closeModal()">✕</button></div>'+
+    '<div class="m-b"><div id="offPrint">'+
+      '<div style="text-align:center;border-bottom:2px solid #7A1F2B;padding-bottom:10px;margin-bottom:14px">'+
+        '<div style="font-weight:800;font-size:18px">Ministry of Education (Singapore)</div>'+
+        '<div style="font-weight:700;font-size:15px;margin-top:2px">Financial Assistance Scheme — Offline Application Form</div>'+
+        '<div style="font-size:11.5px;color:#5E5658">Prefilled from the e-Service Portal · '+TODAY+'</div></div>'+
+      '<table class="kv" style="margin-top:0">'+
+        '<tr><td><b>Offline reference code</b></td><td><b class="mono" style="font-size:16px">'+code+'</b></td></tr>'+
+        row("Applicant (as per NRIC)",p.name)+row("NRIC",p.nric)+
+        row("Contact number",f.form.contact||p.profile.contact)+
+        row("Residential address",f.form.residential||p.profile.residential)+
+        row("Mailing address (if different)",f.form.mailing||p.profile.mailing||"")+
+        row("Children included",kids)+row("School",school)+
+        row("Household size (incl. yourself)",f.form.householdSize||g.householdSize||"")+
+        row("Employment status",f.form.employment||g.employment||"")+
+        row("Housing type",f.form.housing||g.housing||"")+
+      '</table>'+
+      '<p style="font-size:12.5px;color:#2E2628;margin:10px 0 0">• <b>Income — nothing to fill in:</b> official household and per-capita income <b>bands</b> are retrieved by NRIC from the third-party income service during assessment; exact amounts are never needed.</p>'+
+      '<p style="font-size:12.5px;color:#2E2628;margin:8px 0 0">• <b>Declaration:</b> I declare that the information in this application is true and complete, and I authorise MOE to verify the details with official sources.</p>'+
+      '<div style="display:flex;gap:40px;margin-top:28px;font-size:13px"><div style="flex:1">Signature: ______________________</div><div style="flex:1">Date: ______________________</div></div>'+
+ '<div class="notice info" style="margin-top:14px"><span><b>Submit at your child\'s school</b>'+esc(school)+' — the school officer retrieves your details using the offline reference code above, verifies the printed form with you and registers the application. No online submission is needed.</span></div>'+
+    '</div></div>'+
+    '<div class="m-f"><button class="btn btn-ghost" onclick="closeModal()">Close</button>'+
+ '<button class="btn btn-primary" onclick="window.print()">Print / Save as PDF</button></div>'
+  );
+  toast("Offline application prepared — reference "+code+". Print it, sign and submit at the school office.","ok");
+}
+function fasSubmit(){                                     // US-049-01/02
+  const f=state.fas;
+  f.selectedChildren=f.selectedChildren.filter(id=>STUDENTS[id].account);   // safety: exclude children without an account
+  const errs=[];
+  if(!f.selectedChildren.length) errs.push("children");
+  if(!/^(\+65)?[\s\d]{8,}$/.test((f.form.contact||"").trim())) errs.push("contact");
+  if(!(f.form.residential||"").trim()) errs.push("residential");
+  if(!String(f.form.householdSize||"").trim()) errs.push("householdSize");
+  if(!(f.form.employment||"").trim()) errs.push("employment");
+  if(!f.declared) errs.push("declaration");
+  f.errors=errs;
+  if(errs.length){ toast("Some required details are missing — see the highlighted fields.","err"); render(); return; }
+  f.status="submitted";
+  f.refNo="FAS-2026-"+String(Math.floor(100+Math.random()*900));
+  aiPush("ai","I see your FAS application has been submitted ("+f.refNo+"). Status: Submitted. I'll leave you to it — ask me anything else about the portal.",null,["Where is my child's balance?","How do subsidies show on charges?"]);
+  toast("Application submitted — reference "+f.refNo+".","ok");
+  render();
+}
+
+/* =====================================================================
+   MY PERSONAL DETAILS  [R8 / US-042]
+   Clicking the account chip opens this screen. Contact number and
+   addresses are editable (validated, changes recorded with the date);
+   identity fields are read-only. Saved values auto-fill FAS forms.
+   ===================================================================== */
+function viewProfile(){
+  const p=state.parent, pr=p.profile, E=state.profileErrs||[];
+  const err=k=>E.includes(k);
+  const hist=p.profileHistory||[];
+  return `
+  <h1 class="page">My personal details</h1>
+  <p class="page-sub">Update your contact details anytime. Changes are recorded with the date and are used automatically when you apply for financial assistance — where you can still edit every field.</p>
+  <div class="card"><div class="card-b">
+    <div class="form-sec"><h4>Identity — read-only for security</h4>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 16px">
+        <div class="field"><label>Full name (as per NRIC)</label><input type="text" readonly value="${esc(p.name)}"></div>
+        <div class="field"><label>NRIC</label><input type="text" readonly value="${esc(p.nric)}"></div>
+        <div class="field"><label>Linked via</label><input type="text" readonly value="Singpass"></div>
+        <div class="field"><label>Children linked</label><input type="text" readonly value="${p.children.length} — ${p.children.map(id=>STUDENTS[id].name).join(", ")}"></div>
+      </div>
+ <div class="notice info" style="margin:4px 0 0"><span><b>Name, NRIC and linked children can't be changed here</b>Contact MOE to change identity information; children are linked through your Singpass profile.</span></div>
+    </div>
+    <div class="form-sec"><h4>Contact &amp; addresses — editable</h4>
+      <div class="field ${err("contact")?"err":""}"><label>Contact number <span class="req" style="color:var(--red)">*</span></label>
+        <input id="pfContact" type="tel" value="${esc(pr.contact)}" placeholder="+65 9123 4567">
+        <div class="hint">${err("contact")?"That doesn't look like a valid Singapore contact number — please check and try again.":"A valid Singapore mobile/landline number, e.g. +65 9123 4567."}</div></div>
+      <div class="field ${err("residential")?"err":""}"><label>Residential address <span class="req" style="color:var(--red)">*</span></label>
+        <input id="pfRes" type="text" value="${esc(pr.residential)}">
+        <div class="hint">${err("residential")?"Residential address is required.":"&nbsp;"}</div></div>
+      <div class="field"><label>Mailing address (if different)</label>
+        <input id="pfMail" type="text" value="${esc(pr.mailing)}">
+        <div class="hint">Leave as the residential address if you don't need a separate mailing address.</div></div>
+      <button class="btn btn-primary" onclick="profileSave()">Save changes</button>
+    </div>
+    ${hist.length?`
+    <details class="cov"><summary>Change history (${hist.length})</summary>
+      <div class="card" style="margin-top:10px"><div style="overflow:auto"><table class="tbl">
+        <tr><th>Date</th><th>Field</th><th>From</th><th>To</th></tr>
+        ${hist.map(h=>`<tr><td>${esc(h.date)}</td><td><b>${esc(h.field)}</b></td><td class="muted">${esc(h.from)}</td><td>${esc(h.to)}</td></tr>`).join("")}
+      </table></div></div>
+    </details>`:""}
+ <div class="notice ai" style="margin-top:14px"><span><b>Used automatically in FAS applications</b>The next family application you start will be pre-filled with these details — and every field can still be edited by hand in the application.</span></div>
+  </div></div>
+  ${coverageTable()}`;
+}
+function profileSave(){
+  const p=state.parent, pr=p.profile;
+  const contact=$("#pfContact").value.trim();
+  const res=$("#pfRes").value.trim();
+  const mail=$("#pfMail").value.trim();
+  const errs=[];
+  if(!/^(\+65[\s-]?)?[6-9]\d{3}[\s-]?\d{4}$/.test(contact)) errs.push("contact");
+  if(!res) errs.push("residential");
+  state.profileErrs=errs;
+  if(errs.length){ toast("Please check the highlighted fields — the change was not saved.","err"); render(); return; }
+  const finalMail = (mail===pr.mailing && pr.mailing===pr.residential) ? res : (mail||res);  // un-customized mailing follows the residential address
+  const changes=[];
+  if(contact!==pr.contact) changes.push({date:TODAY,field:"Contact number",from:pr.contact,to:contact});
+  if(res!==pr.residential) changes.push({date:TODAY,field:"Residential address",from:pr.residential,to:res});
+  if(finalMail!==pr.mailing) changes.push({date:TODAY,field:"Mailing address",from:pr.mailing,to:finalMail});
+  if(!changes.length){ toast("No changes to save."); return; }
+  p.profile={contact:contact,residential:res,mailing:finalMail};
+  p.profileHistory=(p.profileHistory||[]);
+  changes.forEach(c=>p.profileHistory.unshift(c));
+  toast("Personal details updated — recorded with today's date. New FAS applications will use these details automatically.","ok");
+  render();
+}
+
+/* =====================================================================
+   COVERAGE NOTE
+   ===================================================================== */
+function coverageTable(){
+  return "";
+}
+
+/* ---------- boot ---------- */
+render();
+</script>
+</body>
+</html>
