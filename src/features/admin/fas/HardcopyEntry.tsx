@@ -5,7 +5,7 @@ import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field, inputClass } from "../../../components/ui/Field";
-import { nextSbfasId, PAPER_INCOME_BANDS, PAPER_PCI_INDEX, type SbfasStatus } from "../../../data/sbfasApplications";
+import { nextSbfasId, PAPER_INCOME_BANDS, type SbfasStatus } from "../../../data/sbfasApplications";
 import { rankOf } from "../../../data/sbfasRule";
 import { useFasActions } from "../../../data/fasActions";
 import { useFas } from "../../../data/fasStore";
@@ -62,10 +62,7 @@ export default function HardcopyEntry() {
       return;
     }
     const id = nextSbfasId(fas.apps);
-    addHardcopy({
-      studentId, incomeBand, householdBand, note,
-      by: staff?.name ?? "School staff", pciIndex: PAPER_PCI_INDEX[PAPER_INCOME_BANDS.perCapita.indexOf(incomeBand)] ?? 4,
-    });
+    addHardcopy({ studentId, incomeBand, householdBand, note, by: staff?.name ?? "School staff" });
     const s = reg.students.find((x) => x.id === studentId);
     setAnnounce(`Hardcopy application ${id} for ${s?.name ?? "the student"} entered into the SBFAS queue.`);
     setStudentId("");

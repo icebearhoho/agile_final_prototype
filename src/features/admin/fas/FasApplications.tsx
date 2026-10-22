@@ -21,7 +21,7 @@ import { withBalance } from "../../../lib/studentFas";
 import { useMockQuery } from "../../../lib/useMockQuery";
 import { Tiles } from "../fee-types/parts";
 import HqPermissionNote from "../HqPermissionNote";
-import { ReviewModal, RiskBadge } from "./ReviewModal";
+import { ReviewModal } from "./ReviewModal";
 import { isDeclined, isGranted, sortQueue, statusLabel, type Action, type Draft } from "./review";
 
 type Filter = "all" | "pending" | "granted" | "declined";
@@ -105,12 +105,6 @@ function SbfasReview() {
         <span className="block text-[13px] text-on-surface-variant">{a.level} · {a.id}</span>
       </Link>
     ) },
-    { key: "riskScore", header: "Risk", sortable: true, render: (a) => (
-      <>
-        <RiskBadge score={a.riskScore} />
-        <span className="mt-1 block text-[13px] text-on-surface-variant">Suggests {rankOf(a.recommendedTier)}</span>
-      </>
-    ) },
     { key: "incomeBand", header: "Income per person", sortable: true },
     { key: "source", header: "Source", render: (a) => (
       <Badge tone={a.source === "MOE referral" ? "primary" : "neutral"}>{a.source}</Badge>
@@ -165,7 +159,7 @@ function SbfasReview() {
         }
       >
         <p className="mb-4 text-sm text-on-surface-variant">
-          Highest risk first, pending before decided. Income is shown as a band only. Applications arrive from MOE
+          Pending before decided. Income is shown as a band only. Applications arrive from MOE
           referrals (families outside the MOEFAS bands) or paper forms entered at the school.
         </p>
         <p role="status" className="sr-only">{announce}</p>
