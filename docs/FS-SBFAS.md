@@ -1,159 +1,147 @@
 # FS — SBFAS (School-Based FAS) — Functional Specification
 
-**Phiên bản:** 1.1 · 2026-10-22
-**Phạm vi:** tính năng SBFAS cho **school user** (tab *SBFAS review*, *SBFAS rules*, *MOEFAS Handbook* chỉ đọc) trong trang `/admin/fas`.
-**Người dùng:** tài khoản role `school` (vd `alicia.tan@school.example`, `geraldine.rajaratnam@school.example` — mật khẩu demo `Sch00l-Demo-26`). MOE HQ xem queue ở chế độ chỉ đọc.
+**Phiên bản:** 2.0 · 2026-10-22
+**Phạm vi:** tính năng SBFAS cho **school user** trong trang `/admin/fas` — 4 tab: *SBFAS review* · *SBFAS rules* · *MOEFAS Handbook* (chỉ đọc) · *Hardcopy applications*.
+**Người dùng:** tài khoản role `school` (vd `alicia.tan@school.example` — Greenfield Secondary/S001, `geraldine.rajaratnam@school.example` — Riverbank Primary/S002; mật khẩu demo `Sch00l-Demo-26`). MOE HQ vào `/admin/fas` chỉ thấy queue **chỉ đọc**.
 
 ---
 
 ## 1. Tổng quan nghiệp vụ
 
-1. MOE đặt **income band** quốc gia (GHI — tổng thu nhập hộ, PCI — thu nhập bình quân đầu người) và các tier MOEFAS.
-2. **School user** nhóm các band quốc gia thành 3 mức nhu cầu **LOW / MED / HIGH**, chọn **Rank** (gói hỗ trợ của trường) cho từng mức, đặt **mức hỗ trợ từng Rank** (%, hoặc S$ cố định) và optionally **mức hỗ trợ theo từng fee component**.
-3. Học sinh nộp hồ sơ → system xếp mức nhu cầu → **đề xuất Rank** → school user **Review / Approve / Override / Reject**.
-5. Quy tắc Eligibility: **SBFAS chỉ dành cho Singapore Citizen** (kể cả Dual citizenship có SG). Hồ sơ non-SC hiển thị cảnh báo và phải Reject.
+1. Đơn SBFAS đến hàng đợi trường theo **2 kênh**:
+   - **MOE referral** — gia đình nộp form FAS online, rơi ngoài các băng thu nhập MOEFAS → MOE đẩy xuống queue trường. Mang ngày đồng bộ MyInfo (SingPass).
+   - **Hardcopy** — gia đình nộp **đơn giấy trực tiếp tại trường**, staff tự nhập trong tab *Hardcopy applications*. Band thu nhập đọc từ form giấy (không MyInfo sync).
+2. **Không map băng thu nhập → rank.** Mỗi đơn vào queue ở **rank khởi đầu** (Tier 3 nếu trường có, không thì rank cuối cùng của rule đang Active) — school user **tự duyệt và chọn rank từng đơn** (Approve rank khởi đầu / Override sang rank khác / Reject).
+3. Rule của trường là **các version có trạng thái** như FAS Rules của MOE: **chỉ 1 rule Active tại một thời điểm**; Active mới thì bản Active cũ chuyển **Inactive**; bản Inactive giữ lại làm **history**; Draft chưa từng được Active.
+4. Eligibility: **SBFAS chỉ dành cho Singapore Citizen** (Dual citizenship có SG vẫn hợp lệ). Hồ sơ non-SC hiện cảnh báo đỏ và phải Reject.
+5. Quyết định ghi thẳng về hồ sơ học sinh + charges (writeback qua `useFasActions`): Approve/Override → subsidy áp vào charges chưa trả của học sinh.
 
-**Lưu trữ:** toàn bộ rule & quyết định nằm trong **bộ nhớ phiên (in-memory)** — reload trang trả về mặc định. Rule lưu theo **mã trường của user đang đăng nhập** (S001 Greenfield Secondary / S002 Riverbank Primary).
+**Lưu trữ:** mọi rule, version, quyết định nằm trong **bộ nhớ phiên (in-memory)** — reload trang trả về seed/mặc định.
 
 ---
 
 ## 2. Tab SBFAS review
 
 ### 2.1 Stat tiles
-| Field | Kiểu | Nguồn |
-|---|---|---|
-| Waiting for your review | số = hồ sơ Pending của trường | `status = "Pending"` |
-| Granted | số | status ∈ {Approved, Overridden} |
-| Declined | số | status = "Rejected" |
+| Field | Nguồn |
+|---|---|
+| Waiting for your review | hồ sơ Pending của trường |
+| Granted | status ∈ {Approved, Overridden} |
+| Declined | status = "Rejected" |
 
-### 2.2 Filter chips
-`All (n)` · `Pending (n)` · `Granted (n)` · `Rejected (n)` — chip Rejected dùng key nội bộ `declined`. Bấm chip lọc bảng (aria-pressed).
+### 2.2 Filter
+- **Trạng thái:** `All (n)` · `Pending (n)` · `Granted (n)` · `Rejected (n)`.
+- **Nguồn:** `All sources (n)` · `MOE referral (n)` · `Hardcopy (n)` — lọc chồng lên cùng filter trạng thái.
+- Mô tả dưới tiêu đề: "*Highest risk first, pending before decided… Applications arrive from MOE referrals (families outside the MOEFAS bands) or paper forms entered at the school.*"
 
-### 2.3 Bảng queue (phân trang 10 dòng/page)
+### 2.3 Bảng queue (10 dòng/page)
 | Column | Data field | Ghi chú QA |
 |---|---|---|
-| Student | `student`, `level`, `id` | link `/admin/students/{studentId}/fees`; chỉ hiện hồ sơ thuộc trường của user |
-| Risk | `riskScore` (0–100) | badge High/Medium/Low – điểm |
-| Income per person | `incomeBand` | text band PCI từ seed |
+| Student | `student`, `level`, `id` | link `/admin/students/{studentId}/fees`; trường chỉ thấy hồ sơ của mình |
+| Income per person | `incomeBand` | text band |
+| **Source** | `source` | badge **MOE referral** (burgundy) / **Hardcopy** (xám) |
 | Fee to pay | tính từ charges | `S$… Balance S$…` |
-| Status | `status` (+ `sbfasTier`) | `Pending`/`Granted`/`Declined` ; khi có `sbfasTier` thêm `· Rank N` |
-| (hàng) | — | nút **Open review** mở modal |
+| Status | `status` (+ `sbfasTier`) | `Pending`/`Granted · Rank N`/`Declined` |
 
-### 2.4 Review modal — data fields
-| Field | Kiểu | Hợp lệ / Mặc định |
-|---|---|---|
-| Student | text + link | read-only |
-| Nationality | text | từ seed; **không phải SC** → alert đỏ "*… — not eligible for MOE FAS or SBFAS (Singapore Citizens only). Reject this application.*" |
-| Household income band (monthly) | text | read-only (MyInfo) |
-| Per-capita income band (monthly) | text | read-only |
-| Risk rating | badge | High/Medium/Low – `riskScore` |
-| Suggested rank | text | `Rank N` từ `recommendedTier` |
-| Fee payable / Account balance | S$ | read-only + link *view fees* |
-| Why this suggestion | text | `explanation` |
-| Override rank | select | option: `Rank N — <subsidy> subsidy` (+ " (suggested)" cho rank đề xuất); `<subsidy>` = `75%` hoặc khoảng `50–100%` khi có override theo component |
-| Justification (required to override) | textarea | **bắt buộc khi Override** |
-| Nút | — | **Reject / Override / Approve Rank N**; đóng bằng nút **X** (không có Cancel) |
+### 2.4 Review modal
+Giữ nguyên các field cũ (Student, Nationality + alert non-SC, 2 band thu nhập, Suggested rank, Fee payable/Balance, Why this suggestion, Override rank, Justification, nút Reject/Override/Approve Rank N). **Thêm 2 field mới:**
 
-**Validation quyết định** (chỉ với Override):
-- Rỗng justification → *"Enter a justification to override the AI recommendation."*
-- Chọn đúng rank đề xuất → *"Choose a tier different from the recommendation, or approve instead."*
-
-**Ánh xạ trạng thái sau quyết định:** Approve → `Approved`; Override → `Overridden` (+ lưu `sbfasTier`, `justification`); Reject → `Rejected`. Hiển thị: Approved/Overridden = *Granted*, Rejected = *Declined*.
-
----
-
-## 3. Tab SBFAS rules
-
-Card: `SBFAS rules — <tên trường của user đăng nhập>`. Bố cục 2 cột: trái = 3 mức, phải = bảng Rank; dưới cùng: Fee component support → Save/Reset → **History**.
-
-### 3.1 Mức nhu cầu LOW / MED / HIGH (mỗi khối)
-| Field | Kiểu | Hợp lệ / Mặc định |
-|---|---|---|
-| Suggested ranks | **chips đa chọn** Rank 1..N | bấm bật/tắt; một mức chọn được **nhiều rank**; mặc định HIGH=[Rank 1], MED=[Rank 2], LOW=[Rank 3]; không chọn = mức không đề xuất |
-| PCI From Tier / To Tier | select | tier quốc gia 5..8 (tier đã thuộc MOEFAS bị **loại khỏi options**); `—` = bỏ nhóm |
-| GHI From Tier / To Tier | select | như trên |
-
-**Logic đề xuất:** mức = mức "need hơn" giữa GHI và PCI của hồ sơ (`HIGH > MED > LOW`); rank đề xuất = **rank hỗ trợ cao nhất (số nhỏ nhất)** trong các rank mức đó chọn.
-
-### 3.2 Bảng Rank (cột phải)
-| Field | Kiểu | Hợp lệ / Mặc định |
-|---|---|---|
-| Rank | label | Rank 1..N theo thứ tự dòng |
-| Subsidy basis | select | `% of fee` (mặc định) / `Fixed S$` |
-| Rate | number | `%`: 0–100, tối đa 2 số thập phân; `S$`: ≥ 0; mặc định 4 rank = 100 / 75 / 50 / 25 (%) |
-| Remove | nút | disable khi chỉ còn 1 rank; xóa rank → các lựa chọn mức tự dịch xuống |
-| + Rank | nút | thêm Rank mới (basis %, rate rỗng) |
-
-### 3.3 Fee component support (đa dòng)
-Mỗi dòng: **Fee type** (select — fee type của trường) → **Fee component** (select — component của fee type đó; component đã chọn ở dòng khác bị ẩn) → với **từng Rank**: dropdown `Same as rank (X%)` (mặc định — theo mức chung của rank) / `% of component` (nhập 0–100) / `Fixed S$ amount` (nhập ≥ 0). Nút **+ Fee type** thêm dòng; nút **Remove** xóa dòng (khi ≥ 2 dòng).
-
-### 3.4 Lưu / Validation
-Nút **Save SBFAS rules** / **Reset**. Sau khi lưu **không hiện note xác nhận** (đã xóa) — kết quả lưu thể hiện qua entry mới trong History (3.5). Trang không còn chú thích "Grouping and rates apply…".
-| Điều kiện lỗi | Thông báo |
+| Field | Giá trị |
 |---|---|
-| Xóa hết rank | "Keep at least one rank." |
-| Rate sai định dạng | "Enter a rate between 0 and 100 (max 2 decimals) for every component." (hoặc "Enter an amount of at least 0…" nếu basis S$) |
-| Không nhóm band nào | "Group at least one income band into a level before saving." |
-| Mức trỏ rank đã bị xóa | "Pick the rank this level suggests." |
+| **Application source** | Hardcopy → "*Hardcopy — paper form entered by the school*"; còn lại → "*MOE referral — fell out of the MOE assessment*" |
+| **Income sync** | có `incomeSyncedOn` → "*MyInfo · YYYY-MM-DD*"; Hardcopy → "*Not synced — paper form*" |
 
-### 3.5 History
-Cuối trang (sau nút Save). Mỗi lần **Save** tạo 1 entry — **mới nhất trên cùng**, các hàng phân cách bằng đường kẻ, hover đổi nền.
-| Field | Kiểu | Ghi chú QA |
-|---|---|---|
-| Hàng history | button | trái: `{ngày, giờ} — {tên staff đã lưu}`; phải: `N change(s)` hoặc `No effective change` + chevron › |
-| Popup chi tiết | modal | click hàng → popup tiêu đề `Rule change — {ngày, giờ}`, dòng `Saved by {tên}`, **mỗi thay đổi 1 thẻ riêng**; đóng bằng **X / Esc / click nền ngoài** (không có nút Close) |
-| Nội dung dòng thay đổi | text | `Rank N subsidy: 75% → 80%` · `Added Rank 5 (10%)` / `Removed Rank 4 (25%)` · `Rank N <component>: same as rank (50%) → S$10` · `LOW suggested ranks: Rank 3 → Rank 3, Rank 4` · `GHI/PCI Tier N: MED → Not grouped` |
-| Empty state | text | chưa lưu lần nào: `No changes saved yet.` |
-
-Entry đầu tiên so sánh với **default package** (100/75/50/25). Lưu lại không đổi gì → entry `No effective change`. History là in-memory — reload trang mất.
+Validation Override giữ nguyên (justification bắt buộc; không override về đúng rank đề xuất).
 
 ---
 
-## 4. Data model (QA đối chiếu storage/API)
+## 3. Tab SBFAS rules — version lifecycle (như FAS Rules của MOE)
 
-**SbfasRule** (mỗi trường): `school` (S001/S002), `updated` (ngày), `tiers: [{tier:"Tier N", basis:"percent"|"fixed", rate:number, components?: {<tên component>: {basis, rate}}}]`, `levelTiers: {HIGH:[], MED:[], LOW:[]}` (mảng "Tier N", rỗng = không đề xuất), `grouping: {ghi:[level|null], pci:[level|null]}` theo thứ tự band quốc gia, `history?: [{at:"ISO datetime", by:"tên staff", changes:string[]}]` — log mỗi lần save (cũ → mới), bắt đầu từ lần save đầu (so với default package).
+### 3.1 Danh sách version
+Card `SBFAS rules — <tên trường>` + nút **Create rule**. Bảng: **Rule ID / name** (`SBFASR26100001` kiểu `SBFASR`+YYMM+0001) · **Ranks** (số) · **Subsidy** ("100%, 75%, 50%, 25%") · **Updated** · **Status** (badge Active= xanh / Draft=vàng / Inactive=xám).
+Row actions: **View** (mọi bản) · **Edit**, **Activate** (chỉ bản ≠ Active). Ghi chú cuối: "*Only one rule can be Active at a time. Activating a rule makes the previous Active rule Inactive. Draft rules have never been activated.*"
 
-**SbfasApplication:** `id` (SBFAS0001–0018, trừ 0004/0006 — đã xóa vì Singapore PR), `student`, `studentId`, `level`, `incomeBand`, `householdBand`, `incomeSyncedOn`, `riskScore`, `recommendedTier` ("Tier N"), `slaDays`, `explanation`, `status` (Pending/Approved/Overridden/Rejected), sau quyết định thêm `sbfasTier`, `justification`.
+**Seed demo (S001):** SBFAS 2025 — Previous package (Inactive, 3 rank) · SBFAS 2026 — Standard package (**Active**, 100/75/50/25) · SBFAS 2027 — Proposed package (Draft, 5 rank). Trường chưa Active bản nào → **default package 100/75/50/25** áp dụng.
 
-**Hiển thị Rank:** nội bộ lưu "Tier N", UI hiển thị **"Rank N"** (MOE-side giữ "Tier").
+### 3.2 Editor
+Link "← SBFAS rules" · h2 *Create/Edit/View rule* · badge trạng thái ("Editable draft" khi Draft). Nội dung:
+1. **Set the package ranks** — field **Rule name** (bắt buộc) + bảng Rank (basis `% of fee`/`Fixed S$`, rate 0–100 hoặc ≥0 S$, tối đa 2 số thập phân; Remove disable khi còn 1; Add rank).
+2. **Fee component support** (khi trường có fee type) — mỗi dòng: Fee type → Fee component → từng Rank: `Same as rank (X%)` / `% of component` / `Fixed S$ amount`.
+
+Footer: **Cancel / Save draft / Activate** (ẩn khi View).
+
+### 3.3 Save / Activate / validation
+| Hành động | Kết quả |
+|---|---|
+| Save draft | Lưu/upsert version (status Draft) → banner xanh "*Draft saved.*" |
+| Activate (editor hoặc row) | Modal xác nhận "*Activate <name>? The currently active rule <id> (<name>) will become Inactive. Existing application outcomes stay unchanged.*" → Confirm: bản này **Active**, bản Active cũ → **Inactive**; banner xanh xác nhận |
+| Edit bản Inactive | **Tạo version mới** (id mới) — không ghi đè history |
+| Edit bản Draft | Giữ nguyên id |
+| Create rule | Bản nháp mới **copy từ rule đang hiệu lực** (đổi tên trước khi lưu) |
+
+Lỗi: thiếu tên → "*Enter a rule name.*"; rate sai → "*Enter a rate between 0 and 100 (max 2 decimals) for every component.*" / "*Enter an amount of at least 0…*"; xóa hết rank → "*Keep at least one rank.*" — banner đỏ "*Fix the highlighted fields before saving.*"
+
+**Rule hiệu lực:** bản **Active** của trường quyết định subsidy trong review modal + **rank khởi đầu** của đơn mới (Tier 3 nếu có, không thì rank cuối).
+
+---
+
+## 4. Tab Hardcopy applications
+
+**Card 1 — Enter hardcopy application:** giải thích 2 kênh; form = **Student** (chỉ học sinh của trường, Singapore Citizen, chưa có đơn & chưa được MOEFAS grant; rỗng → "*No student of this school can be entered right now…*") · **Per-capita income band** (B1–B4: ≤S$450 / S$451–700 / S$701–1,000 / S$1,001–1,500) · **Household income band** (H1–H4) · **Note from the paper form** (tùy chọn) · nút **Add to queue**. Thiếu student → "*Pick the student the paper form belongs to.*" Nhập xong: form reset + dòng xác nhận xanh "*Hardcopy application SBFAS00XX for <tên> entered into the SBFAS queue.*"
+
+Đơn tạo ra: Pending · `source: "Hardcopy"` · không `incomeSyncedOn` · riskScore 50 · rank khởi đầu theo rule Active · SLA 10 ngày · explanation ghi tên staff + note (trim). **Một đơn/một grant mỗi học sinh** — đã có đơn hoặc MOEFAS grant thì không nhập được.
+
+**Card 2 — Hardcopy applications from this school:** mọi đơn giấy của trường (seed + mới nhập): Student (link fees) · Income bands · Suggested rank · Status. Rỗng → "*Nothing on paper yet*".
 
 ---
 
 ## 5. MOEFAS Handbook (tab 3)
 
-Chỉ đọc: giới thiệu + bảng income tiers GHI/PCI + Active MOE rule. **Không được chỉnh sửa trong scope QA của SBFAS.**
+Chỉ đọc, không đổi cấu trúc. Đoạn mở đầu có 1 câu mới: đơn vào queue trường theo 2 kênh — MOE referral (rơi ngoài băng MOEFAS) và đơn giấy trường tự nhập; cả hai cùng quy trình review.
 
 ---
 
-## 6. QA checklist
+## 6. Data model (QA đối chiếu storage)
 
-| # | Test case | Data field cần check | Expected |
-|---|---|---|---|
-| 1 | Đăng nhập Geraldine (S002) → /admin/fas | school của rule | Queue chỉ có học sinh Riverbank; card rules ghi "Riverbank Primary School" |
-| 2 | Queue load | `status` filter chips | All=Pending số khớp stat "Waiting for your review"; chip cuối là "Rejected (n)" |
-| 3 | Mở modal hồ sơ SC | nationality, suggested rank | Không có alert đỏ; "Suggested rank: Rank N" |
-| 4 | Mở modal hồ sơ non-SC | nationality | Alert đỏ "…Singapore Citizens only…Reject this application." |
-| 5 | Override thiếu justification | justification | Bị chặn: "Enter a justification to override…" |
-| 6 | Override chọn đúng rank đề xuất | tier | Bị chặn: "Choose a tier different from the recommendation…" |
-| 7 | Approve | status, sbfasTier | Hàng chuyển "Granted · Rank N"; stat Granted +1 |
-| 8 | Reject | status | "Declined"; stat Declined +1 |
-| 9 | Rules: bật MED = Rank 2 + Rank 3 → Save | levelTiers.MED | Cả 2 chip sáng sau khi lưu |
-| 10 | Bỏ hết chip của LOW → Save | levelTiers.LOW | Cho lưu (mức không đề xuất); hồ sơ mức LOW sẽ không có suggestion |
-| 11 | From/To Tier chứa MOEFAS tier | grouping | Options không chứa tier đã thuộc MOEFAS |
-| 12 | Rate = 150 → Save | tiers[].rate | Bị chặn với thông báo rate 0–100 |
-| 13 | Basis Fixed S$, rate = -5 → Save | tiers[].basis, rate | Bị chặn "Enter an amount of at least 0…" |
-| 14 | Xóa Rank 2 (đang được MED chọn) → Save | levelTiers | Pick tự dịch (Tier 3→Tier 2); không lỗi validation |
-| 15 | Fee component: Rank 1 LM = 60% → Save → mở modal | tiers[].components | Option "Rank 1 — 60–100% subsidy" |
-| 16 | Fee component: Rank 2 LM = Fixed S$10 → Save → modal | components basis | Rank 2 vẫn hiển thị mức flat (S$ không trộn vào %) |
-| 17 | + Fee type × 2 → chọn Supplementary Fees | rows | Dropdown component chỉ hiện component chưa dùng ở dòng khác |
-| 18 | Reload trang | store | Rule/quyết định trở về mặc định (in-memory) |
-| 19 | Bố cục rules | — | 2 cột: mức bên trái, bảng Rank bên phải; Fee component support full-width dưới |
-| 20 | Modal không có nút Cancel | — | Chỉ X + Reject/Override/Approve |
-| 21 | Save 1 thay đổi (vd Rank 2 = 80%) | `history[]` | History thêm hàng trên cùng "1 change"; **không** có note xanh xác nhận |
-| 22 | Click hàng History | `history[].changes` | Popup "Rule change — {ngày, giờ}" + "Saved by {tên}"; mỗi thay đổi 1 thẻ; X đóng được |
-| 23 | Save lại không đổi gì | `history[].changes` | Hàng mới ghi "No effective change"; popup ghi "No effective change." |
-| 24 | Reload trang → tab rules | `history[]` | History rỗng → "No changes saved yet." (in-memory) |
+- **SbfasRule:** `id` (SBFASR…), `name`, `status` (Active/Inactive/Draft), `school`, `updated`, `tiers: [{tier:"Tier N", basis, rate, components?}]`, `coveredComponents?`. **Không còn** `grouping` / `levelTiers` / `history`.
+- **SbfasStore:** `rules: Record<mã trường, SbfasRule[]>`; action `save-rule` (upsert theo id) và `activate-rule` (đúng 1 Active).
+- **SbfasApplication:** các field cũ **+ `source: "MOE referral" | "Hardcopy"`**; `incomeSyncedOn` chỉ có trên MOE referral. Seed 16 đơn: băng thấp (B1/B2, household cao) = MOE referral có ngày sync; băng cao (B3/B4) = Hardcopy không sync.
+- **FasStore action mới:** `addHardcopy {studentId, incomeBand, householdBand, note, at, by, start}`; `submitFamily` giờ tag đơn SBFAS là MOE referral + `start` là rank khởi đầu.
+- **UI vocabulary:** nội bộ "Tier N", hiển thị **"Rank N"**.
 
 ---
 
-*Tài liệu mô tả hành vi tại commit `9cd1ef7`. Mọi thay đổi UI SBFAS sau này cần cập nhật FS này.*
+## 7. QA checklist
+
+| # | Test case | Expected |
+|---|---|---|
+| 1 | Đăng nhập Alicia (S001) → /admin/fas | 4 tab: SBFAS review · SBFAS rules · MOEFAS Handbook · Hardcopy applications |
+| 2 | Queue → filter nguồn | Số lượng All sources = MOE referral + Hardcopy; lọc giữ nguyên filter trạng thái |
+| 3 | Cột Source | Đơn băng thấp badge "MOE referral" (burgundy); băng cao badge "Hardcopy" (xám) |
+| 4 | Mở modal đơn MOE referral | "Application source: MOE referral — fell out of the MOE assessment"; "Income sync: MyInfo · 2026-10-XX" |
+| 5 | Mở modal đơn Hardcopy | "Hardcopy — paper form entered by the school"; "Not synced — paper form" |
+| 6 | Parent portal nộp form (băng b3 SBFAS) → queue | Đơn mới Pending, badge MOE referral, "Suggests Rank 3", có ngày sync MyInfo |
+| 7 | Tab Hardcopy: chọn student + băng + note → Add to queue | Dòng xanh "Hardcopy application SBFAS0019…"; đơn xuất hiện trong queue badge Hardcopy, không có sync; bảng dưới cùng có hàng mới |
+| 8 | Tab Hardcopy: dropdown Student | Không chứa HS đã có đơn / đã được MOEFAS grant / non-SC |
+| 9 | Tab Hardcopy: không chọn student → Add | Lỗi "Pick the student the paper form belongs to." |
+| 10 | Nhập hardcopy trùng HS đã có đơn | Không tạo đơn thứ hai (một đơn/HS) |
+| 11 | Approve đơn | "Granted · Rank N"; stat Granted +1; subsidy áp vào charges của HS (view fees) |
+| 12 | Override thiếu justification / đúng rank đề xuất | Bị chặn đúng thông báo cũ |
+| 13 | Modal non-SC | Alert đỏ "Singapore Citizens only… Reject" |
+| 14 | Tab Rules lần đầu | Bảng 3 version seed: 2025 Inactive · 2026 Active · 2027 Draft; nút Create rule |
+| 15 | View rule Active | Editor chỉ đọc — không Edit/Activate ở footer |
+| 16 | Create rule | Editor "Create rule", nội dung copy rule đang Active, tên rỗng |
+| 17 | Create → Save draft thiếu tên | Banner đỏ "Enter a rule name." |
+| 18 | Save draft hợp lệ | Về danh sách, banner xanh "Draft saved.", version Draft mới có id SBFASR26100003 |
+| 19 | Activate bản Draft (từ row) | Modal "Activate …? The currently active rule … will become Inactive." → Confirm: bản đó Active (xanh), SBFAS 2026 chuyển Inactive; đúng 1 Active |
+| 20 | Sau khi Active, mở queue → review modal | Subsidy option theo rule Active mới |
+| 21 | Edit bản Inactive → Save draft | Tạo version MỚI (id mới) — bản Inactive gốc không đổi |
+| 22 | Rate = 150 / Fixed −5 / xóa hết rank | Chặn đúng 3 thông báo validation |
+| 23 | Fee component: Rank 1 = 60% → Save draft → Activate → mở modal review | Option "Rank 1 — 60–100% subsidy" theo bản Active |
+| 24 | Reload trang | Rules về seed 3 version; quyết định/đơn hardcopy đã nhập mất (in-memory) |
+| 25 | Đăng nhập Geraldine (S002) → tab Rules | Danh sách rỗng ("No rules yet") — S002 không có seed; rule hiệu lực = default package |
+| 26 | HQ mở /admin/fas | Chỉ queue read-only — không tab rules/hardcopy |
+
+---
+
+*Tài liệu mô tả hành vi tại bản deploy `index-DyaijKQ0.js` (2026-10-22). Mọi thay đổi UI SBFAS sau này cần cập nhật FS này.*

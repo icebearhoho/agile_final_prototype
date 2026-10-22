@@ -1,7 +1,6 @@
 import { useRef, useState, type RefObject } from "react";
 import { Link } from "react-router";
 import { Sparkle } from "@phosphor-icons/react";
-import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
@@ -9,15 +8,7 @@ import { SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../dat
 import { rankOf, subsidySummary, type ComponentRates, type SbfasRule, type SubsidyBasis } from "../../../data/sbfasRule";
 import { isSbfasEligible } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
-import { riskLevel } from "../../../lib/fas";
 import { statusLabel, validateDecision, type Action, type Draft, type DecisionError } from "./review";
-
-export const riskTone = { Low: "success", Medium: "warning", High: "alert" } as const;
-
-export function RiskBadge({ score }: { score: number }) {
-  const level = riskLevel(score);
-  return <Badge tone={riskTone[level]}>{level} - {score}</Badge>;
-}
 
 /** Extra fields carried alongside the application (computed in the queue from real student records and charges). */
 export type FeeContext = {
@@ -72,7 +63,6 @@ function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { 
         <Dt label="Nationality">{app.nationality}</Dt>
         <Dt label="Household income band (monthly)">{app.householdBand ?? "—"}</Dt>
         <Dt label="Per-capita income band (monthly)">{app.incomeBand}</Dt>
-        <Dt label="Risk rating"><RiskBadge score={app.riskScore} /></Dt>
         <Dt label="Suggested rank">{rankOf(app.recommendedTier)}</Dt>
         <Dt label="Application source">{app.source === "Hardcopy" ? "Hardcopy — paper form entered by the school" : "MOE referral — fell out of the MOE assessment"}</Dt>
         <Dt label="Income sync">{app.incomeSyncedOn ? `MyInfo · ${app.incomeSyncedOn}` : "Not synced — paper form"}</Dt>

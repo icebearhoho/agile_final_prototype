@@ -87,9 +87,6 @@ const H4 = "Above S$4,000";
 
 /** The bands printed on the paper application form, offered when a school enters a hardcopy application. */
 export const PAPER_INCOME_BANDS = { perCapita: [B1, B2, B3, B4], household: [H1, H2, H3, H4] };
-/** Each paper per-capita band's slot in HQ's default per-capita tiers (0-based) — the same slots the online
- * form's bands map to — so the school's grouping can suggest a rank for a paper form too. */
-export const PAPER_PCI_INDEX = [1, 2, 4, 5];
 
 // Applications are seeded against real student records so the queue can show each family's fee payable.
 const of = (name: string) => STUDENTS.find((s) => s.name === name)!;
