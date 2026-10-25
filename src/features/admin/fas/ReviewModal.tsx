@@ -1,7 +1,5 @@
-import { useRef, useState, type RefObject } from "react";
+import { useState } from "react";
 import { Link } from "react-router";
-import { Sparkle } from "@phosphor-icons/react";
-import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
@@ -9,15 +7,7 @@ import { SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../dat
 import { rankOf, subsidySummary, type ComponentRates, type SbfasRule, type SubsidyBasis } from "../../../data/sbfasRule";
 import { isSbfasEligible } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
-import { riskLevel } from "../../../lib/fas";
-import { statusLabel, validateDecision, type Action, type Draft, type DecisionError } from "./review";
-
-export const riskTone = { Low: "success", Medium: "warning", High: "alert" } as const;
-
-export function RiskBadge({ score }: { score: number }) {
-  const level = riskLevel(score);
-  return <Badge tone={riskTone[level]}>{level} - {score}</Badge>;
-}
+import { statusLabel, type Action, type Draft } from "./review";
 
 /** Extra fields carried alongside the application (computed in the queue from real student records and charges). */
 export type FeeContext = {
@@ -42,24 +32,12 @@ function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { 
   const tierList: { tier: SbfasTier; basis?: SubsidyBasis; rate?: number; components?: ComponentRates }[] = rule
     ? rule.tiers
     : SBFAS_TIERS.map((t) => ({ tier: t }));
+  // The rank the reviewer will grant — defaults to the application's starting rank; the school picks any rank it offers.
   const [tier, setTier] = useState<SbfasTier>(tierList.some((t) => t.tier === app.recommendedTier) ? app.recommendedTier : tierList[0].tier);
   const [justification, setJustification] = useState("");
-  const [error, setError] = useState<DecisionError | null>(null);
-  const tierRef = useRef<HTMLSelectElement>(null);
-  const justRef = useRef<HTMLTextAreaElement>(null);
   const decided = app.status !== "Pending";
 
-  const act = (action: Action) => {
-    const draft = { justification, tier };
-    const err = validateDecision(action, draft, app.recommendedTier);
-    if (err) {
-      setError(err);
-      // Move focus to the offending field so keyboard and screen-reader users land on the error.
-      ((err.field === "tier" ? tierRef : justRef) as RefObject<HTMLElement | null>).current?.focus();
-      return;
-    }
-    onDecide(app.id, action, draft);
-  };
+  const act = (action: Action) => onDecide(app.id, action, { justification, tier });
 
   return (
     <div className="space-y-5">
@@ -72,8 +50,6 @@ function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { 
         <Dt label="Nationality">{app.nationality}</Dt>
         <Dt label="Household income band (monthly)">{app.householdBand ?? "—"}</Dt>
         <Dt label="Per-capita income band (monthly)">{app.incomeBand}</Dt>
-        <Dt label="Risk rating"><RiskBadge score={app.riskScore} /></Dt>
-        <Dt label="Suggested rank">{rankOf(app.recommendedTier)}</Dt>
         <Dt label="Application source">{app.source === "Hardcopy" ? "Hardcopy — paper form entered by the school" : "MOE referral — fell out of the MOE assessment"}</Dt>
         <Dt label="Income sync">{app.incomeSyncedOn ? `MyInfo · ${app.incomeSyncedOn}` : "Not synced — paper form"}</Dt>
       </dl>
@@ -95,9 +71,7 @@ function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { 
       </div>
 
       <div className="rounded-control border border-line bg-surface-container-low p-4">
-        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-on-surface">
-          <Sparkle size={16} aria-hidden="true" className="text-primary" /> Why this suggestion
-        </p>
+        <p className="text-[13px] font-semibold text-on-surface">Application context</p>
         <p className="mt-1.5 text-sm text-on-surface">{app.explanation}</p>
       </div>
 
@@ -108,37 +82,21 @@ function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { 
         </div>
       ) : (
         <>
-          <Field
-            label="Override rank"
-            error={error?.field === "tier" ? error.message : undefined}
-          >
-            <select ref={tierRef} className={inputClass} value={tier} onChange={(e) => setTier(e.target.value as SbfasTier)}>
+          <Field label="Rank">
+            <select className={inputClass} value={tier} onChange={(e) => setTier(e.target.value as SbfasTier)}>
               {tierList.map((t) => (
                 <option key={t.tier} value={t.tier}>
-                  {rankOf(t.tier)}{t.basis ? ` — ${subsidySummary(t, rule?.coveredComponents)} subsidy` : ""}{t.tier === app.recommendedTier ? " (suggested)" : ""}
+                  {rankOf(t.tier)}{t.basis ? ` — ${subsidySummary(t, rule?.coveredComponents)} subsidy` : ""}
                 </option>
               ))}
             </select>
           </Field>
-          <Field
-            label="Justification (required to override)"
-            error={error?.field === "justification" ? error.message : undefined}
-          >
-            <textarea
-              ref={justRef}
-              rows={3}
-              className={`${inputClass} py-2`}
-              value={justification}
-              onChange={(e) => {
-                setJustification(e.target.value);
-                if (error?.field === "justification") setError(null);
-              }}
-            />
+          <Field label="Justification (optional)">
+            <textarea rows={3} className={`${inputClass} py-2`} value={justification} onChange={(e) => setJustification(e.target.value)} />
           </Field>
           <div className="flex flex-wrap justify-end gap-3 pt-1">
             <Button variant="secondary" onClick={() => act("reject")}>Reject</Button>
-            <Button variant="secondary" onClick={() => act("override")}>Override</Button>
-            <Button onClick={() => act("approve")}>Approve {rankOf(app.recommendedTier)}</Button>
+            <Button onClick={() => act("approve")}>Approve {rankOf(tier)}</Button>
           </div>
         </>
       )}

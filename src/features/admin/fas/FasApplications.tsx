@@ -21,7 +21,7 @@ import { withBalance } from "../../../lib/studentFas";
 import { useMockQuery } from "../../../lib/useMockQuery";
 import { Tiles } from "../fee-types/parts";
 import HqPermissionNote from "../HqPermissionNote";
-import { ReviewModal, RiskBadge } from "./ReviewModal";
+import { ReviewModal } from "./ReviewModal";
 import { isDeclined, isGranted, sortQueue, statusLabel, type Action, type Draft } from "./review";
 
 type Filter = "all" | "pending" | "granted" | "declined";
@@ -90,7 +90,7 @@ function SbfasReview() {
     decideApp(id, action, draft); // updates the FAS record and re-prices the student's unpaid fees
     setOpenId(null);
     const a = apps.find((x) => x.id === id);
-    if (a) setAnnounce(`Application ${id} for ${a.student} ${{ approve: "approved", override: "overridden", reject: "rejected" }[action]}.`);
+    if (a) setAnnounce(`Application ${id} for ${a.student} ${{ approve: "approved", reject: "rejected" }[action]}.`);
   };
 
   // The rule of the school that owns the opened application — SBFAS packages are school-defined.
@@ -104,12 +104,6 @@ function SbfasReview() {
         <span className="font-semibold">{a.student}</span>
         <span className="block text-[13px] text-on-surface-variant">{a.level} · {a.id}</span>
       </Link>
-    ) },
-    { key: "riskScore", header: "Risk", sortable: true, render: (a) => (
-      <>
-        <RiskBadge score={a.riskScore} />
-        <span className="mt-1 block text-[13px] text-on-surface-variant">Suggests {rankOf(a.recommendedTier)}</span>
-      </>
     ) },
     { key: "incomeBand", header: "Income per person", sortable: true },
     { key: "source", header: "Source", render: (a) => (
@@ -165,7 +159,7 @@ function SbfasReview() {
         }
       >
         <p className="mb-4 text-sm text-on-surface-variant">
-          Highest risk first, pending before decided. Income is shown as a band only. Applications arrive from MOE
+          Pending before decided. Income is shown as a band only. Applications arrive from MOE
           referrals (families outside the MOEFAS bands) or paper forms entered at the school.
         </p>
         <p role="status" className="sr-only">{announce}</p>

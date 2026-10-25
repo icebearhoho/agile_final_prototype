@@ -107,9 +107,9 @@ describe("a family application from the parent portal", () => {
   const submit = (tier: "MOEFAS Tier 1" | "MOEFAS Tier 2" | "SBFAS" | null, s = initialFasState()) =>
     fasReducer(s, { type: "submitFamily", studentIds: ids, band: { id: "bx", label: "$751 - $1,000 per person", tier }, at });
 
-  it("an unmapped band falls back to a tier the school offers, not a hard-coded Tier 3", () => {
-    const recommend = { [ethan.id]: { level: null, tier: null, fallback: "Tier 2" as const } };
-    const s = fasReducer(initialFasState(), { type: "submitFamily", studentIds: [ethan.id], band: { id: "b3", label: "x", tier: "SBFAS" }, at, recommend });
+  it("an application starts at the rank the school's rule passes, not a hard-coded Tier 3", () => {
+    const start = { [ethan.id]: "Tier 2" as const };
+    const s = fasReducer(initialFasState(), { type: "submitFamily", studentIds: [ethan.id], band: { id: "b3", label: "x", tier: "SBFAS" }, at, start });
     expect(s.apps.find((a) => a.studentId === ethan.id)!.recommendedTier).toBe("Tier 2");
   });
 
@@ -171,14 +171,14 @@ describe("a family application from the parent portal", () => {
 describe("a paper (hardcopy) application entered at the school", () => {
   const [ethan] = FAMILY_STUDENT_NAMES.map((n) => STUDENTS.find((s) => s.name === n)!);
   const at = "2026-10-20T14:00:00.000Z";
-  const enter = (studentId: string, s = initialFasState(), suggest?: { level: "MED"; tier: "Tier 2"; fallback: "Tier 3" }) =>
+  const enter = (studentId: string, s = initialFasState(), start?: "Tier 2") =>
     fasReducer(s, {
       type: "addHardcopy", studentId, incomeBand: "S$701 - S$1,000", householdBand: "S$2,501 - S$4,000",
-      note: " handed in at the office ", by: "Alicia Tan", at, suggest,
+      note: " handed in at the office ", by: "Alicia Tan", at, start,
     });
 
   it("creates one pending Hardcopy application with the entered bands and no MyInfo sync", () => {
-    const s = enter(ethan.id, initialFasState(), { level: "MED", tier: "Tier 2", fallback: "Tier 3" });
+    const s = enter(ethan.id, initialFasState(), "Tier 2");
     const added = s.apps[s.apps.length - 1];
     expect(added).toMatchObject({
       studentId: ethan.id, level: ethan.level, source: "Hardcopy", status: "Pending",
@@ -192,7 +192,7 @@ describe("a paper (hardcopy) application entered at the school", () => {
     expect(Object.keys(s.moefas)).toHaveLength(0); // paper never grants MOEFAS
   });
 
-  it("falls back to Tier 3 when the school's grouping suggests nothing", () => {
+  it("starts at Tier 3 when no starting rank is passed", () => {
     const s = enter(ethan.id, initialFasState(), undefined);
     expect(s.apps[s.apps.length - 1].recommendedTier).toBe("Tier 3");
   });

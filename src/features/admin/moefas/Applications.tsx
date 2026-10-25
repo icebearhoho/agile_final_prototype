@@ -208,7 +208,7 @@ function Detail({ f, rules, onBack }: { f: Family; rules: Rule[]; onBack: () => 
             <KV k="School" v={f.schools[child]} />
             <KV k="Status" v={<Pill s={childResult(f, child)} />} />
           </dl>
-          <p className="mt-3 text-[13px] text-on-surface-variant">School users decide Approve / Override / Reject. No SBFAS subsidy is applied while the case is pending.</p>
+          <p className="mt-3 text-[13px] text-on-surface-variant">School users decide Approve / Reject at a rank of their choice. No SBFAS subsidy is applied while the case is pending.</p>
         </Card>
       )}
 

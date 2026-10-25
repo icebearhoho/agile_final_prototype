@@ -45,11 +45,12 @@ export const SBFAS_TIERS: SbfasTier[] = ["Tier 1", "Tier 2", "Tier 3", "Tier 4"]
 /** R4: subsidy rate per default tier. Real SBFAS is school-managed within 50–75%; Tier 1 is the strongest package. */
 export const SBFAS_TIER_RATES: Partial<Record<SbfasTier, number>> = { "Tier 1": 1, "Tier 2": 0.75, "Tier 3": 0.5, "Tier 4": 0.25 };
 
-export type Action = "approve" | "override" | "reject";
+export type Action = "approve" | "reject";
 export type Draft = { justification: string; tier: SbfasTier };
-const STATUS: Record<Action, SbfasStatus> = { approve: "Approved", override: "Overridden", reject: "Rejected" };
+const STATUS: Record<Action, SbfasStatus> = { approve: "Approved", reject: "Rejected" };
 
-/** Pure. Records an approve/override/reject on one application (validation happens in the review modal). */
+/** Pure. Records the reviewer's decision on one application — Approve grants at the rank the reviewer
+ * picked in the modal (there is no suggestion to follow); the justification is an optional note. */
 export function applyDecision(apps: SbfasApplication[], id: string, action: Action, draft: Draft): SbfasApplication[] {
   return apps.map((a) =>
     a.id !== id
@@ -57,7 +58,7 @@ export function applyDecision(apps: SbfasApplication[], id: string, action: Acti
       : {
           ...a,
           status: STATUS[action],
-          sbfasTier: action === "reject" ? undefined : action === "override" ? draft.tier : a.recommendedTier,
+          sbfasTier: action === "reject" ? undefined : draft.tier,
           justification: draft.justification.trim() || undefined,
         },
   );
@@ -87,9 +88,6 @@ const H4 = "Above S$4,000";
 
 /** The bands printed on the paper application form, offered when a school enters a hardcopy application. */
 export const PAPER_INCOME_BANDS = { perCapita: [B1, B2, B3, B4], household: [H1, H2, H3, H4] };
-/** Each paper per-capita band's slot in HQ's default per-capita tiers (0-based) — the same slots the online
- * form's bands map to — so the school's grouping can suggest a rank for a paper form too. */
-export const PAPER_PCI_INDEX = [1, 2, 4, 5];
 
 // Applications are seeded against real student records so the queue can show each family's fee payable.
 const of = (name: string) => STUDENTS.find((s) => s.name === name)!;
