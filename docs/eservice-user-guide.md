@@ -24,7 +24,6 @@ Children appear automatically once their Education Account is opened (at age 7).
 | Expand / collapse button | Bottom of the sidebar | Shows the menu with names, or back to icons only. |
 | **Sign out** button | Very bottom of the sidebar | Ends your session and returns to the sign-in page. |
 | **Page title** | Top left | The name of the page you are on. |
-| **Bell** | Top right | Notifications. The red dot means there is something unread. *(assumption: notifications are not built yet)* |
 | **Circle with initials** | Top right | You, the signed-in parent. Hover it to see your full name. |
 | **Ask MOE Assistant** | Bottom right | Opens the chatbot (see [AI-01]). |
 
@@ -36,7 +35,7 @@ Children appear automatically once their Education Account is opened (at age 7).
 | Grey **Unpaid** badge | Not paid yet, but not late. |
 | Amber **Payment due** badge | A child has something to pay, none of it late. |
 | Green **Paid** / **Paid up** badge | Nothing left to pay. |
-| Green amount with **+** and a down arrow | Money **into** an Education Account (top-up or refund). |
+| Green amount with **+** and a down arrow | Money **into** an Education Account (top-up). |
 | Amount with **−** and an up arrow | Money **out** (a payment). |
 | Pulsing grey blocks | The page is loading. |
 | "Could not load …" with **Retry** | Loading failed. Check your connection and press **Retry**. |
@@ -73,7 +72,7 @@ The first page after sign-in. It answers "what do I owe, and how are my children
 
 1. **One way to pay.** You never choose a method. The system:
    - uses each child's **Education Account first**, and only for **that child's own** invoices (never a sibling's),
-   - sends **whatever is left** to **card or bank** through the payment gateway.
+   - sends **whatever is left** to the payment gateway, where you pay by **card** or **QR code**.
 2. **Part payment is possible**, in two ways:
    - pay only **some invoices** (tick only those), or
    - pay only **some fee items inside an invoice** (tick the items you want, see [PAY-03]).
@@ -125,7 +124,7 @@ You see **Payment not completed — The gateway declined this payment**.
 
 ### [PAY-05] Overdue invoices
 
-An invoice is **overdue** when its due date has passed and something is still owed. It shows in red on the Overview and Payments pages and is listed first. Pay it like any other invoice ([PAY-02]). Its status is worked out each time from the due date and the payments, so as soon as it is fully paid it shows **Paid**.
+An invoice is **overdue** when its due date has passed and something is still owed. It shows in red on the Overview and Payments pages and is listed first. You can still pay it at any time, like any other invoice ([PAY-02]). There is no separate late fee. Its status is worked out each time from the due date and the payments, so as soon as it is fully paid it shows **Paid**.
 
 ### [PAY-06] The payment window, stage by stage
 
@@ -144,7 +143,7 @@ An invoice is **overdue** when its due date has passed and something is still ow
 Each child has their own Education Account, opened at age 7. *(assumption: it closes at 16 and any balance moves to CPF)*
 
 - **Where to see it:** Overview (**Your children**) and the top of **Payments**.
-- **Goes up** when MOE tops it up or a refund is made (shown as **MOE top-up**, green **+**).
+- **Goes up** when MOE tops it up (shown as **MOE top-up**, green **+**).
 - **Goes down** when it pays that child's fees (shown as **Education account**, **−**).
 - **Card payments don't change it** — they are listed in Transactions but are paid from your card or bank.
 - A child's balance is **never** used for a sibling's fees.
@@ -183,12 +182,12 @@ Things that move an invoice:
 
 The page has two tabs at the top: **Transactions** and **Invoices**. The tab you choose stays in the page address, so the browser Back button and bookmarks keep it.
 
-**Transactions tab** — the full record of top-ups, payments and refunds of your children's Education Accounts, and the fees paid by card, newest first.
+**Transactions tab** — the full record of top-ups and payments of your children's Education Accounts, and the fees paid by card, newest first.
 
 | Column | Meaning |
 |---|---|
 | **Date** | When the money moved. |
-| **Description** | "Payment for *fee name*" for a fee payment; the top-up or refund name otherwise. |
+| **Description** | "Payment for *fee name*" for a fee payment; the top-up name otherwise. |
 | **Student** | Which child. |
 | **Method** | *Education account* (taken from the child's account), *Card* (paid by card or bank, does not change the balance) or *MOE top-up* (money in). |
 | **Amount** | Green **+** = money in; **−** = money out. |
@@ -200,7 +199,7 @@ When one fee is paid partly from the account and partly by card, it appears as *
 | Filter | Options |
 |---|---|
 | **Child** | All children, or one child |
-| **Transaction type** | All types, Top-ups and refunds (money in), Payments (money out) |
+| **Transaction type** | All types, Top-ups and refunds (money in), Payments (money out). There are no refunds for now, so money in is always a top-up. |
 | **From** / **To** | A date range; either end can be left blank. The To date can't be before the From date. |
 
 If nothing matches you see "No transactions found". Change or clear a filter to see more.
@@ -349,7 +348,7 @@ Press **Ask MOE Assistant** at the bottom right. On a wide screen it docks to th
 
 | Part | Meaning |
 |---|---|
-| **AI · English** | It is an AI and answers in English. |
+| **AI · English** | It is an AI and answers in English only. |
 | Grey banner | "AI can make mistakes. Check answers on the page. Don't type ID numbers or bank details." |
 | Suggestion chips | Tap one to ask it. |
 | Link button under an answer | Opens the page the answer is about. |
@@ -394,6 +393,60 @@ If you have already submitted, it shows a link to your application instead.
 
 ---
 
+### [FAQ-01] Frequently asked questions
+
+Short, ready-to-use answers. Each one names the section with the full detail.
+
+**Children and accounts**
+
+- **My child isn't showing. What do I do?** Children appear automatically once their Education Account is opened at age 7; you can't add them yourself. If a child of 7 or older is missing, contact the school or MOE ([HELP-01]). — GEN-02
+- **Can one child's Education Account pay my other child's fees?** No. Each child's account pays only that child's own invoices. Anything it can't cover goes by card or bank. — ACC-01, PAY-01
+- **Why didn't my balance go down after I paid?** Only the part paid from the Education Account lowers the balance. The part paid by card or bank comes from your card or bank. Check the **Method** column in Transactions. — ACC-01, TX-01
+- **Where do I see my child's balance?** Overview → **Your children**, or the top of **Payments**. The assistant can't read figures for you. — ACC-01
+
+**Paying**
+
+- **Can I pay only part of my fees?** Yes. Tick only some invoices, or tick single fee items under an invoice. The invoice stays Unpaid or Overdue until everything on it is paid. — PAY-01, PAY-03, INV-01
+- **Can I pay just one item of an invoice?** Yes. On **Payments**, tick the item in the indented list under the invoice. The invoice's checkbox shows a dash to say only part of it is ticked. — PAY-03
+- **Can I choose to pay everything by card and keep the account balance?** No. The Education Account is always used first; only the rest goes by card or bank. — PAY-01
+- **How can I pay the part the account doesn't cover?** By **card** or by scanning a **QR code** (e.g. PayNow) in the payment gateway. — PAY-01
+- **What does "overdue" mean?** The due date has passed and something is still owed. It is shown in red and listed first. Pay it like any other invoice. — PAY-05
+- **Is there a late fee? Can I still pay after the due date?** There is no separate late fee. An overdue invoice can still be paid at any time, the same way as any other invoice. — PAY-05
+- **My payment failed. Was I charged?** No. Nothing is charged, no account money is taken and the invoices are unchanged. Press **Try again** or **Close**. — PAY-04, PAY-06
+- **Why is the Pay button greyed out?** Nothing is ticked yet. Tick at least one invoice or fee item. — PAY-03
+- **Can I cancel after pressing Pay?** Yes, press **Cancel** in the confirmation window; nothing changes. Once *Processing* starts it can't be stopped. — PAY-06
+- **I paid too much / I want a refund.** You can't pay more than is owed, and there are **no refunds** for now. If you think something is wrong, talk to a person ([HELP-01]). — PAY-01
+
+**Invoices and transactions**
+
+- **Why does one payment show twice in Transactions?** It was split: one row for the part from the Education Account and one for the part by card. Together they equal what you paid. — TX-01
+- **Can I get a receipt or statement?** Open **Transactions → Invoices** and press **View details** on a paid invoice to see its charges and payments. There is no PDF or printed receipt yet. — TX-03
+- **Where are my paid invoices?** **Transactions → Invoices**. Unpaid ones are on **Payments**. — TX-03
+- **What do Amount, Subsidy, Paid and Outstanding mean on an invoice?** The fee, the FAS amount taken off, what you've paid, and what's left (Amount − Subsidy − Paid). — INV-01
+- **Why did my invoice amount go down without me paying?** A FAS decision lowered it. A 100% waiver makes it $0 and shows it as Paid. — INV-01, FAS-06
+
+**Financial Assistance (FAS)**
+
+- **What's the difference between MOEFAS and SBFAS?** MOEFAS is granted automatically by MOE's criteria and waives school and miscellaneous fees in full. SBFAS is for families not in a MOEFAS band; the child's school decides and waives a share of each fee by tier. A child never gets both. — FAS-01
+- **Am I eligible? How much will I get?** It depends on your household income band from HOMES; the assistant can't tell you. Apply and you'll see each child's result. — FAS-01, FAS-03
+- **Do I need one application per child?** No. One family application covers all your children; each child gets their own result. — FAS-01
+- **What is HOMES and why do you need my income?** HOMES is the system MOE uses to get your household income. MOE only receives a **band** per person, never your exact income. You agree to this with the consent box. — FAS-03
+- **What documents do I need?** None are required. You may add payslips, a retrenchment letter or medical bills (PDF, JPG or PNG, up to 5 MB each). — FAS-04
+- **Why is the Submit application button greyed out?** Tick the consent box first. — FAS-04
+- **How long does a decision take?** MOEFAS is decided by criteria straight after you submit. SBFAS waits for the school's review. *(assumption: no review time limit is promised to parents)* — FAS-06
+- **How do I know the result?** **Financial Assistance Scheme** → **View application** → **Result per child**; also on the Overview FAS card. — FAS-06
+- **How is the subsidy applied to my fees?** It is taken off that child's invoices that still have something owed. Paid invoices are not changed. — FAS-06, INV-01
+- **SBFAS was declined. Can I apply again?** Yes. Use **Ask the school again** under the results, say what has changed, and submit. It goes back to the school as Pending. — FAS-07
+- **Can I change my application after submitting?** No. Once submitted, a FAS application can't be changed. If SBFAS is declined you can ask the school again ([FAS-07]). — FAS-06
+
+**Your details and the screen**
+
+- **Why can't I change my name or NRIC?** They come from SingPass and can only be changed there. You can change your addresses and contact number in **Settings**. — SET-01
+- **What is "Paid this year" / "Next payment due" / "Amount to pay"?** See the Overview table. — OV-01
+- **Can I ask the assistant in another language?** No. The portal and the assistant support **English only**. — AI-01
+
+---
+
 ### [HELP-01] Talking to a person
 
 Press **Talk to a person** at the bottom of the MOE Assistant, or ask it to. *(assumption — contact not confirmed)*
@@ -422,7 +475,7 @@ Each intent → the answer key in `src/data/assistant.ts` → the guide section 
 | Intent | Answer key | Guide section | Example user phrasings (use as test cases) |
 |---|---|---|---|
 | How to pay | `pay` | PAY-01, PAY-02, PAY-03 | "How do I pay a fee?", "pay school fees", "where do I pay the bill" |
-| Payment method / not enough balance | `payShort` | PAY-01 | "Can I pay by PayNow?", "my account balance is too low", "pay by card" |
+| Payment method / not enough balance | `payShort` | PAY-01 | "Can I pay by PayNow?", "can I pay by QR", "my account balance is too low", "pay by card" |
 | Payment failed | `payFailed` | PAY-04, PAY-06 | "payment failed", "my payment didn't go through", "card declined" |
 | What do I owe | `outstanding` | PAY-03, PAY-05, INV-01 | "what do I have to pay", "outstanding fees", "unpaid invoices" |
 | Balance | `balance` | ACC-01 | "check my child's balance", "how much money is in the education account" |
@@ -449,7 +502,7 @@ Each intent → the answer key in `src/data/assistant.ts` → the guide section 
 
 ### [BOT-04] Gaps found — questions this guide answers but the bot can't yet
 
-Use these to extend `ANSWERS` and the router. Each line: question → guide section → suggested fix.
+Each question below now has a ready answer in [FAQ-01]. Use it to extend `ANSWERS` and the router. Each line: question → guide section → suggested fix.
 
 | # | Parent question | Guide | Current bot behaviour | Suggested fix |
 |---|---|---|---|---|
@@ -465,8 +518,8 @@ Use these to extend `ANSWERS` and the router. Each line: question → guide sect
 | G10 | "Why can't I change my name?" | SET-01 | `details` only if "profile/update my" appears | Add "name", "nric" keywords to `details`. |
 | G11 | "Why is the Submit button greyed out?" | FAS-04 step 5 | Out of scope | Add `fasConsent` answer. |
 | G12 | "Can I pay just one item of an invoice?" | PAY-01, PAY-03 | `pay` (mentions part payment but not per item) | Add one line about ticking fee items. |
-| G13 | "What does the red dot on the bell mean?" / "What is Paid this year?" | GEN-03, OV-01 | Out of scope | Add screen-help answers from the GEN/OV tables. |
-| G14 | Non-English questions | — | Out of scope (English only) | Decide language support. |
+| G13 | "What is Paid this year?" / "What is Next payment due?" | OV-01 | Out of scope | Add screen-help answers from the OV table. |
+| G14 | Non-English questions | AI-01 | Out of scope | Reply in English that only English is supported. |
 
 **Router pitfall:** any message containing "fas" or "subsid" that is not about status/eligibility starts the guided fill (`engine.ts` `route`). Add specific FAS-info intents *above* that branch.
 
@@ -485,6 +538,5 @@ Use these to extend `ANSWERS` and the router. Each line: question → guide sect
 - Which profile fields parents may edit (SET-01).
 - Real income bands and tier cut-offs (FAS-02).
 - Whether invoices should be downloadable as PDF (TX-03).
-- Whether a submitted FAS application can be amended or withdrawn, and confirm the re-request after a decline (FAS-07).
-- Languages to support (G14).
-- What the notification bell should show (GEN-03).
+- Confirm the re-request after a decline (FAS-07).
+- SBFAS decision time limit (FAQ-01).
