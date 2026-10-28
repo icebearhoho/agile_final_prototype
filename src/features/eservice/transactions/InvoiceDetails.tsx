@@ -2,20 +2,19 @@ import { Badge } from "../../../components/ui/Badge";
 import { Modal } from "../../../components/ui/Modal";
 import type { Child } from "../../../data/parent";
 import type { Charge } from "../../../data/fees";
-import { balanceOf, chargeStatus } from "../../../lib/fees";
+import { balanceOf, chargeStatus, componentBalances } from "../../../lib/fees";
 import { formatSGD } from "../../../lib/format";
 import { fmtDate } from "../overview/shared";
 
 const cents = (n: number) => Math.round(n * 100) / 100;
 
-/** Spreads the charge's payments over its components in order, so each line shows what is paid and still owed. */
+/** Per fee item: amount, FAS subsidy, what is paid and what is still owed (payments for one item count against that item only). */
 export function componentLines(c: Charge) {
-  let left = c.payments.reduce((s, p) => s + p.amount, 0);
-  return c.components.map((x) => {
+  const left = componentBalances(c);
+  return c.components.map((x, k) => {
     const subsidy = Math.min(x.subsidy ?? 0, x.amount);
-    const paid = cents(Math.min(left, x.amount - subsidy));
-    left = cents(left - paid);
-    return { name: x.name, amount: x.amount, subsidy, paid, outstanding: cents(x.amount - subsidy - paid) };
+    const outstanding = left[k].amount;
+    return { name: x.name, amount: x.amount, subsidy, paid: cents(x.amount - subsidy - outstanding), outstanding };
   });
 }
 
