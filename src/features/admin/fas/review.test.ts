@@ -29,13 +29,15 @@ test("valid override, approve and reject pass without justification where not re
   expect(validateDecision("reject", { justification: "", tier: "Tier 2" }, "Tier 2")).toBeNull();
 });
 
-test("applyDecision sets status, final tier and justification on one app only", () => {
+test("applyDecision sets status, final tier and justification on one app only, closing its round", () => {
   const list = [app("a", 20), app("b", 90)];
-  const out = applyDecision(list, "b", "override", { justification: " why ", tier: "Tier 1" });
-  expect(out[1]).toMatchObject({ status: "Overridden", sbfasTier: "Tier 1", justification: "why" });
+  const at = "2026-10-26T09:00:00.000Z";
+  const out = applyDecision(list, "b", "override", { justification: " why ", tier: "Tier 1" }, at);
+  expect(out[1]).toMatchObject({ status: "Overridden", sbfasTier: "Tier 1", justification: "why", decidedAt: at });
+  expect(out[1].rounds![0].decision).toMatchObject({ status: "Overridden", tier: "Tier 1", justification: "why", at });
   expect(out[0].status).toBe("Pending");
-  expect(applyDecision(list, "a", "reject", { justification: "", tier: "Tier 2" })[0]).toMatchObject({ status: "Rejected", sbfasTier: undefined });
-  expect(applyDecision(list, "a", "approve", { justification: "", tier: "Tier 2" })[0]).toMatchObject({ status: "Approved", sbfasTier: "Tier 2" });
+  expect(applyDecision(list, "a", "reject", { justification: "", tier: "Tier 2" }, at)[0]).toMatchObject({ status: "Rejected", sbfasTier: undefined });
+  expect(applyDecision(list, "a", "approve", { justification: "", tier: "Tier 2" }, at)[0]).toMatchObject({ status: "Approved", sbfasTier: "Tier 2" });
 });
 
 test("decision history tabs: approved and overridden are granted, rejected is declined, pending is neither", () => {

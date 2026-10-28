@@ -17,7 +17,7 @@ export const initialSbfasState = (): SbfasState => ({ apps: SBFAS_APPLICATIONS, 
  * (tiers it offers and their rates); schools that never saved fall back to the default package.
  */
 export function sbfasReducer(state: SbfasState, a: SbfasAction): SbfasState {
-  if (a.type === "decide") return { ...state, apps: applyDecision(state.apps, a.id, a.action, a.draft) };
+  if (a.type === "decide") return { ...state, apps: applyDecision(state.apps, a.id, a.action, a.draft, new Date().toISOString()) };
   if (a.type === "save-rule") return { ...state, rules: { ...state.rules, [a.rule.school]: a.rule } };
   return state;
 }

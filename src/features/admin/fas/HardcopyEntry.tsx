@@ -1,127 +1,70 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type RefObject } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { CaretRight, FilePdf, Plus, UploadSimple, X } from "@phosphor-icons/react";
+import { ArrowLeft, CaretRight, FilePlus, FileText, MagnifyingGlass, Paperclip, Plus, Printer, X } from "@phosphor-icons/react";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Modal } from "../../../components/ui/Modal";
 import { Field, inputClass } from "../../../components/ui/Field";
-import { childOutcomeNow, outcomeNote, type ChildOutcomeNow, type FamilyApplication, type FamilyChild, type TransportMode } from "../../../data/familyApplications";
+import { childOutcomeNow, nextDraftId, outcomeNote, type ChildOutcomeNow, type FamilyApplication, type FamilyChild, type FamilyDraft } from "../../../data/familyApplications";
+import { openDraftPrint } from "./draftPrint";
+import { guardianByNric, normNric, type GuardianRecord } from "../../../data/familyRegistry";
 import { useFasActions } from "../../../data/fasActions";
 import { latestAppFor, useFas } from "../../../data/fasStore";
 import { BANDS, type Band } from "../../../data/familyFas";
 import { attemptOf, type SbfasApplication } from "../../../data/sbfasApplications";
 import { schoolOfLevel } from "../../../data/schoolMgmt";
 import { useRegistry } from "../../../data/registryStore";
-import type { Level } from "../../../data/students";
+import type { Level, Student } from "../../../data/students";
 import { schoolOfStudent } from "../../../lib/registry";
 import { useSession } from "../../../session";
 import { statusLabel } from "./review";
 
 // Requirement 5: parents who cannot use the e-Service Portal hand a paper MOE FAS form to the school.
-// Both hardcopy flows share one entry form: (1) the FIRST form — scanned (OCR pre-fills the fields, the
-// staff member checks them) or typed by hand — goes to MOE and runs the SAME assessment as an online
-// one: MOEFAS first, then the SBFAS queue on referral. Like the paper form, Section I lists every child
-// the form names — rows are added and removed to match it, keyed with the form's own columns, and the
-// NRIC is matched against the registry — this school's children are tagged "Your school", a child at
-// another school shows their school, and their own school receives any SBFAS referral. (2) after that
-// application is rejected at SBFAS, the parent hands in a SEPARATE new request — at the submit step the
-// form goes straight to the school's SBFAS queue as attempt 2, 3, ... The Applications tab keeps history.
+// Sprint 3 refinement (Sherly, 26 Oct 2026): the form starts from the parent/guardian NRIC — the
+// applicant, contact, address and EVERY child of the family come from the shared MOE registry, and
+// those registry rows are locked (a difference between the paper form and the registry means the
+// form was filled in wrongly, not the database). OCR and the separate entry tab were dropped with
+// the same refinement: every paper form is ISSUED by the system (a pre-filled draft), and the
+// returned copy is keyed in by CLICKING THAT DRAFT'S ROW — there is no hand-keyed path at all.
+// Sections III (benefits), IV (transport) and V (IMDA device) were cut from the scope; the form
+// keeps the paper form's own numbering for what remains.
+// The key-in always goes straight to MOE (the same assessment as an online one): MOEFAS first, then
+// the SBFAS queue on referral — the staff never picks a route. Section I lists every child the form
+// names — this school's children are tagged "Your school", a child at another school shows their
+// school, and their own school receives any SBFAS referral. School scope holds structurally: the
+// staff only ever keys in a form the system issued from the registry, so other-school siblings ride
+// on the family form through the registry.
+// The edge case lives in the history instead (Sprint 3): after the school REJECTS the SBFAS request,
+// the parent may come back — the school opens the application in the Applications tab and files a
+// NEW request (attempt 2, 3, ...) from there, straight into the school's SBFAS queue without a MOE
+// re-assessment (see HardcopyDetailPage).
 //
-// The entry form follows the six sections of the real MOE FAS application form (Sep 2025):
-// I Child particulars · II Other household members · III Benefits · IV Transport · V IMDA device · VI Declaration.
-// Section VII is the school's own step (not on the paper form): where the form goes — MOE or straight
-// to the SBFAS queue — and the staff member's confirmation that every field was checked.
+// The entry form follows the online family application (Sprint 3 parity — the same fields, the same
+// assessment): I Child particulars · II Household income (extra money + residents; the band itself
+// comes from HOMES) · III Declaration. Submitting sends the form straight to MOE — the staff never
+// picks a route; the record page later shows where the form went and how each child fared.
+//
+// The print-first flow keeps a MANDATORY draft record: every generated form is stored as "Draft —
+// awaiting return" with the children it was issued for, so the school always knows exactly which
+// students hold a form. Keying in the returned copy requires cross-checking it against that draft
+// (a required confirmation), and on submit the draft flips to "Returned", linked to the FAS2026####
+// application the copy became — both flows, MOE and the SBFAS queue.
 
-/** Mock OCR: what the scanner "read" off two sample paper forms. Every cell stays editable because
- *  the OCR can misread — the staff member checks them all on the review page before submitting.
- *  The Chua form lands in the SBFAS referral band; the Pereira form sits inside the MOEFAS bands,
- *  so MOE grants Tier 1 the moment it is submitted. */
-type OcrForm = {
-  file: string;
-  applicant: string;
-  contact: string;
-  address: string;
-  email: string;
-  transportMode: TransportMode;
-  note: string;
-  imdaHardcopy: "yes" | "no";
-  children: ChildDraft[];
-  members: MemberDraft[];
-};
-const OCR_FORMS: Record<"sbfas" | "moefas", OcrForm> = {
-  sbfas: {
-    file: "MOE-FAS-form-chua-signed.pdf",
-    applicant: "Benson Chua",
-    contact: "+65 8112 9743",
-    address: "Blk 315 Ang Mo Kio Ave 3, #07-221, Singapore 560315",
-    email: "benson.chua@example.com",
-    transportMode: "Public transport",
-    note: "Second child entering Sec 1 next year; household income dropped after May.",
-    imdaHardcopy: "yes", // the demo form asked for a hard copy of the IMDA application form
-    // Section I rows the scanner read off the form's child table: one child at this school, one at
-    // another. Child 2's school came back smudged ("Greenfield Secondary Schoo").
-    children: [
-      { nric: "T1504644E", name: "Ethan Lim Jun Hao", school: "Riverbank Primary School", level: "P5" },
-      { nric: "T1203822J", name: "Chloe Lim Wen Xin", school: "Greenfield Secondary Schoo", level: "Sec 2" },
-    ],
-    // Section II rows the scanner read off the form (this household declared other administrative income).
-    // They pre-fill the table and the staff member can fix every cell — the OCR can misread.
-    members: [
-      { name: "Benson Chua", nric: "S1234567D", relationship: "Father", age: "44", occupation: "Employed", gross: "2600", other: "0" },
-      { name: "Jenny Chua", nric: "S9876543B", relationship: "Mother", age: "41", occupation: "Self-employed", gross: "1900", other: "120" },
-    ],
-  },
-  moefas: {
-    file: "MOE-FAS-form-seah-signed.pdf",
-    applicant: "Catherine Seah",
-    contact: "+65 9722 4085",
-    address: "Blk 418 Jurong West St 42, #11-107, Singapore 650418",
-    email: "catherine.seah@example.com",
-    transportMode: "Public transport",
-    note: "Father passed away in June; the mother runs a hawker stall and also declared dividend income.",
-    imdaHardcopy: "no",
-    // One child, at this school — the declared income sits inside the MOEFAS bands, so this form is
-    // granted the moment it is submitted and never reaches the SBFAS queue.
-    children: [
-      { nric: "T1003548H", name: "Bernice Seah Xin Rong", school: "Greenfield Secondary School", level: "Sec 4" },
-    ],
-    // GHI S$1,390 ÷ 2 in the household = S$695 per person — "Up to $750 per person" → MOEFAS Tier 1.
-    members: [
-      { name: "Catherine Seah", nric: "S6908141C", relationship: "Mother", age: "41", occupation: "Self-employed", gross: "1300", other: "90" },
-    ],
-  },
-};
-
-const TRANSPORT_MODES: { mode: TransportMode; note: string; primaryOnly?: boolean }[] = [
-  { mode: "Public transport", note: "S$21 per month transport subsidy" },
-  { mode: "School bus", note: "70% of the monthly fare — primary level only", primaryOnly: true },
-  { mode: "Own transport or walks", note: "No transport subsidy" },
-];
-/** Mock OCR of the attached welfare home letter: what the scanner "read" off the PDF. */
-const WELFARE_LETTER_OCR = { home: "Sunbeam Welfare Home", dated: "30 Sep 2026" };
-/** Mock rendering of the attached welfare home letter for the click-to-view dialog. */
+/** Mock rendering of a scanned form for a record that still carries one (HQ applications screen). */
 export const formDocImage = (file: string, applicant: string) => {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="760"><rect width="700" height="760" fill="#faf8f6"/><rect x="40" y="35" width="620" height="690" rx="6" fill="white" stroke="#e4dddd"/><text x="75" y="100" font-family="Arial" font-size="24" fill="#8a2538">Scanned MOE FAS form · SAMPLE</text><text x="75" y="155" font-family="Arial" font-size="15">File: ${file}</text><text x="75" y="200" font-family="Arial" font-size="17">Applicant: ${applicant || "—"}</text><text x="75" y="260" font-family="Arial" font-size="16">Sections I–VI as filled in by the parent</text><text x="75" y="310" font-family="Arial" font-size="14">Mock scan rendering — the OCR pre-filled the entry fields from it.</text><text x="75" y="340" font-family="Arial" font-size="14">Verify every field against this scan before submitting.</text></svg>`;
   return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 };
-const letterDocImage = (l: { file: string; ocr?: { home: string; dated: string } }) => {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="500"><rect width="700" height="500" fill="#faf8f6"/><rect x="40" y="35" width="620" height="430" rx="6" fill="white" stroke="#e4dddd"/><text x="75" y="100" font-family="Arial" font-size="24" fill="#8a2538">Welfare home letter · SAMPLE</text><text x="75" y="150" font-family="Arial" font-size="15">File: ${l.file}</text><text x="75" y="200" font-family="Arial" font-size="16">OCR: ${l.ocr?.home ?? "not read yet"}</text><text x="75" y="230" font-family="Arial" font-size="14">Dated: ${l.ocr?.dated ?? "—"}</text><text x="75" y="290" font-family="Arial" font-size="14">Mock scan rendering — not an actual document.</text></svg>`;
-  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
-};
-const OCCUPATIONS = ["Employed", "Self-employed", "Student", "Unemployed"] as const;
-/** One Section II row as the staff types it (strings straight from the inputs). */
-type MemberDraft = { name: string; nric: string; relationship: string; age: string; occupation: string; gross: string; other: string };
-const blankMember = (): MemberDraft => ({ name: "", nric: "", relationship: "", age: "", occupation: "Employed", gross: "", other: "" });
-/** One Section I row as the staff types it — the paper form's child table columns, keyed as on the form. */
-type ChildDraft = { nric: string; name: string; school: string; level: string };
-const blankChild = (): ChildDraft => ({ nric: "", name: "", school: "", level: "" });
+/** One Section I row — the paper form's child table columns. `db` marks a row that came from the
+ *  registry (the issued draft): every field on it is locked. */
+type ChildDraft = { nric: string; name: string; school: string; level: string; db?: boolean };
 
 /** Tone for the live per-child outcome (childOutcomeNow): follows the school's SBFAS decision. */
 const LIVE_TONE: Record<ChildOutcomeNow["kind"], BadgeTone> = { granted: "success", pending: "warning", rejected: "alert", neutral: "neutral" };
 
-/** Section VII's one-line MOE verdict for a flow-1 form: the assessment ran at submission and is
+/** Section IV's one-line MOE verdict for a flow-1 form: the assessment ran at submission and is
  *  final, so it is told here once instead of repeating a badge on every child row. */
 function moeVerdict(fa: FamilyApplication): string {
   const granted = fa.children.filter((c) => c.outcome === "MOEFAS granted");
@@ -177,7 +120,7 @@ function PaperRow({ fa, apps, schoolOf, onOpen }: { fa: FamilyApplication; apps:
                 {c.student} <span className="font-normal text-on-surface-variant">({c.level}{schoolOf(c.level) !== fa.school ? ` · ${schoolOf(c.level)}` : ""})</span>
               </span>
               <span className="flex flex-wrap items-center gap-1.5">
-                {/* Single live badge; MOE's instant verdict is told once, in Section VII of the detail page. */}
+                {/* Single live badge; MOE's instant verdict is told once, in Section IV of the detail page. */}
                 <Badge tone={LIVE_TONE[co.kind]}>{co.label}</Badge>
               </span>
             </li>
@@ -240,10 +183,52 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
         </ul>
         <p className="text-sm"><span className="text-on-surface-variant">Contact: </span><span className="font-medium">{fa.contact || "—"}</span></p>
         {fa.address && <p className="text-sm"><span className="text-on-surface-variant">Home address: </span><span className="font-medium">{fa.address}</span></p>}
+        {fa.contactCorrected && (
+          <p className="text-[13px] text-on-surface-variant">
+            Updated from what the parent wrote on the returned form — they ticked that the printed details were no longer correct.
+          </p>
+        )}
         {fa.email && <p className="text-sm"><span className="text-on-surface-variant">Email: </span><span className="font-medium">{fa.email}</span></p>}
       </section>
       <section className="space-y-2 border-t border-line pt-4">
-        <SectionTitle n="II" title="Information on other household members" />
+        <SectionTitle n="II" title="Household income" />
+        {(fa.extraIncome !== undefined || fa.residents !== undefined) && (
+          <p className="text-sm">
+            <span className="text-on-surface-variant">Extra monthly money (not in HOMES): </span>
+            <span className="font-medium">S${fa.extraIncome?.toLocaleString("en-SG") ?? 0}</span>
+            <span className="text-on-surface-variant"> · People currently living in the home: </span>
+            <span className="font-medium">{fa.residents ?? "—"}</span>
+          </p>
+        )}
+        {fa.extraIncomeDocs?.length ? (
+          <div className="space-y-1">
+            <p className="text-[13px] font-semibold text-on-surface">Documents for the extra money declared</p>
+            <ul className="space-y-1">
+              {fa.extraIncomeDocs.map((d) => (
+                <li key={d} className="flex items-center gap-2 text-sm">
+                  <FileText size={16} aria-hidden="true" className="text-on-surface-variant" /> {d}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {fa.residentsDocs?.length ? (
+          <div className="space-y-1">
+            <p className="text-[13px] font-semibold text-on-surface">Documents for the people living in the home</p>
+            <ul className="space-y-1">
+              {fa.residentsDocs.map((d) => (
+                <li key={d} className="flex items-center gap-2 text-sm">
+                  <FileText size={16} aria-hidden="true" className="text-on-surface-variant" /> {d}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {(fa.extraIncomeDocs?.length || fa.residentsDocs?.length) ? (
+          <p className="text-[12px] text-on-surface-variant">
+            Handed to the school with the returned form, kept against the Section II answer each one backs (mock: file names only).
+          </p>
+        ) : null}
         {fa.welfareHome ? (
           <p className="text-sm">
             <span className="text-on-surface-variant">Welfare home resident — letter: </span>
@@ -269,20 +254,10 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
         ) : null}
         <p className="text-sm"><span className="text-on-surface-variant">Income band: </span><span className="font-medium">{fa.bandLabel}</span></p>
       </section>
-      {fa.transportMode && (
-        <section className="space-y-2 border-t border-line pt-4">
-          <SectionTitle n="IV" title="Mode of transport between home and school" />
-          <p className="text-sm font-medium">{fa.transportMode}</p>
-        </section>
-      )}
-      {fa.imdaHardcopy && (
-        <section className="space-y-2 border-t border-line pt-4">
-          <SectionTitle n="V" title="Subsidised broadband and/or laptop/tablet" />
-          <p className="text-sm"><span className="text-on-surface-variant">Hard copy of the DigitalAccess@Home form: </span><span className="font-medium">{fa.imdaHardcopy === "yes" ? "Yes" : "No"}</span></p>
-        </section>
-      )}
+      {/* Sections IV (transport) and V (IMDA device) were cut from the scope — a record can no longer
+          carry them, so the paper detail jumps from Section II to the Section III declaration. */}
       <section className="space-y-2 border-t border-line pt-4">
-        <SectionTitle n="VI" title="Declaration and agreement by the applicant" />
+        <SectionTitle n="III" title="Declaration and agreement by the applicant" />
         {fa.declaredAt && (
           <p className="text-sm">
             <span className="text-on-surface-variant">Signed and dated by </span>
@@ -294,7 +269,7 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
         {fa.note && <p className="text-[13px] text-on-surface-variant">{flow2 ? "What changed: " : "Note on the form: "}{fa.note}</p>}
       </section>
       <section className="space-y-2 border-t border-line pt-4">
-        <SectionTitle n="VII" title="Where this form goes" />
+        <SectionTitle n="IV" title="Where this form goes" />
         <p className="text-sm font-medium">
           {flow2 ? "To this school's SBFAS review queue — a separate request after a rejection" : "To MOE for assessment — the first application"}
         </p>
@@ -328,7 +303,7 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
                     {c.student}
                     {a && <span className="text-[13px] text-on-surface-variant"> · {a.id}</span>}
                   </span>
-                  <Badge tone={c.outcome === "MOEFAS granted" ? "success" : c.outcome === "Already covered" ? "neutral" : "warning"}>
+                  <Badge tone={c.outcome === "MOEFAS granted" ? "success" : c.outcome === "Already covered" ? "neutral" : "alert"}>
                     {c.outcome === "MOEFAS granted" ? `MOEFAS granted${c.tier ? ` · ${c.tier}` : ""}` : c.outcome === "Already covered" ? "Already covered" : "MOEFAS not granted"}
                   </Badge>
                 </li>
@@ -337,6 +312,454 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
           </ul>
         )}
       </section>
+    </div>
+  );
+}
+
+/** One Section II declaration's own upload slot: the parent's evidence for THAT answer, named per
+ *  slot, in the optional "Supporting documents" block at the end of the key-in form (mock: file
+ *  names only, nothing is uploaded anywhere). */
+function DocSlot({ name, docs, onChange }: { name: string; docs: string[]; onChange: (next: string[]) => void }) {
+  return (
+    <div className="mt-2 space-y-1.5">
+      <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-control border border-outline bg-surface-container-lowest px-3 py-1.5 text-[13px] font-semibold text-on-surface hover:bg-surface-container-low focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-primary">
+        <Paperclip size={14} aria-hidden="true" /> Add a document
+        <input
+          type="file"
+          multiple
+          className="sr-only"
+          accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+          aria-label={`Add a document for the ${name}`}
+          onChange={(e) => {
+            const names = Array.from(e.target.files ?? []).map((f) => f.name);
+            onChange([...docs, ...names.filter((n) => !docs.includes(n))]);
+            e.target.value = "";
+          }}
+        />
+      </label>
+      {docs.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {docs.map((d, i) => (
+            <span key={d} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-container-lowest px-2.5 py-1 text-[13px]">
+              <FileText size={14} aria-hidden="true" /> {d}
+              <button
+                type="button"
+                onClick={() => onChange(docs.filter((_, j) => j !== i))}
+                aria-label={`Remove ${d}`}
+                className="rounded text-on-surface-variant hover:text-alert focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Keying in a draft's returned copy, opened by clicking the draft's row in the register (Sprint 3).
+ *  Everything the form was PRINTED with is carried over from the draft and locked — the staff fills
+ *  in only what the parent wrote by hand: the Section II household declarations and the Section III
+ *  signature. Submitting sends the form straight to MOE (the same assessment as an online one) and
+ *  flips the draft to "Returned", linked to the FAS2026#### application the copy became; the staff
+ *  lands on the Applications list. */
+function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
+  draft: FamilyDraft;
+  roster: { student: Student; school: string; mineSchool: boolean; blocked: boolean }[];
+  schoolName: string;
+  by: string;
+  onBack: () => void;
+  onSubmitted: () => void;
+}) {
+  const actions = useFasActions();
+  // Section I is the draft's own child table — the same rows the printed form carried, locked. The
+  // registry match only badges each row (own school / other school / already covered).
+  const rows = useMemo<ChildDraft[]>(() => draft.children.map((c) => ({ nric: c.nric, name: c.name, school: c.school, level: c.level, db: true })), [draft]);
+  const byNric = useMemo(() => new Map(roster.map((r) => [normNric(r.student.nric), r])), [roster]);
+  const matchOf = (row: ChildDraft) => (row.nric.trim() ? byNric.get(normNric(row.nric)) : undefined);
+  const chosen = rows.flatMap((row) => { const m = matchOf(row); return m ? [m] : []; });
+  const [applicant, setApplicant] = useState(draft.applicant);
+  const [note, setNote] = useState("");
+  // The Section I contact question the PARENT answered on the paper with Yes / No: Yes keeps the
+  // values the form was printed with; No means the staff keys in the corrected number and address
+  // the parent wrote on the lines (draftPrint's fillbox).
+  const [detailsOk, setDetailsOk] = useState<"yes" | "no" | null>(null);
+  const [contact, setContact] = useState(draft.contact);
+  const [address, setAddress] = useState(draft.address);
+  // Section II mirrors the online family application exactly (Sprint 3 parity): the two fields the
+  // parent declares on the paper form — money not in HOMES, and everyone living at home.
+  const [extraIncome, setExtraIncome] = useState("");
+  const [residents, setResidents] = useState("");
+  const [declared, setDeclared] = useState(false);
+  // The returned-copy cross-check (mandatory): the staff confirms they compared this entry against
+  // the signed paper before submitting.
+  const [checkedAgainst, setCheckedAgainst] = useState(false);
+  // Optional evidence handed in with the returned form, one named slot per Section II declaration —
+  // recorded in the "Supporting documents (optional)" block at the end of the form (mock: file
+  // names only, nothing is uploaded anywhere).
+  const [extraDocs, setExtraDocs] = useState<string[]>([]);
+  const [resDocs, setResDocs] = useState<string[]>([]);
+  const [reviewing, setReviewing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  // Each error names the part of the form it belongs to, so the warning renders AT that section
+  // (and focus lands on the offending control) instead of being pushed to the bottom of the page.
+  const [error, setError] = useState<{ where: "crosscheck" | "children" | "details" | "contact" | "address" | "extra" | "residents" | "applicant" | "declared"; message: string } | null>(null);
+  const crossRef = useRef<HTMLInputElement>(null);
+  const detailsRef = useRef<HTMLInputElement>(null);
+  const contactRef = useRef<HTMLInputElement>(null);
+  const addressRef = useRef<HTMLInputElement>(null);
+  const extraRef = useRef<HTMLInputElement>(null);
+  const resRef = useRef<HTMLInputElement>(null);
+  const applicantRef = useRef<HTMLInputElement>(null);
+  const declaredRef = useRef<HTMLInputElement>(null);
+  const focusOf = (e: { where: "crosscheck" | "children" | "details" | "contact" | "address" | "extra" | "residents" | "applicant" | "declared" }): RefObject<HTMLInputElement | null> | null =>
+    e.where === "crosscheck" ? crossRef
+      : e.where === "details" ? detailsRef
+      : e.where === "contact" ? contactRef
+      : e.where === "address" ? addressRef
+      : e.where === "extra" ? extraRef
+      : e.where === "residents" ? resRef
+      : e.where === "applicant" ? applicantRef
+      : e.where === "declared" ? declaredRef
+      : null;
+
+  // Sprint 3 parity with the online application: the two declared fields are recorded with the form,
+  // but the band itself is never keyed — it comes from HOMES (IRAS + CPF), a band only.
+  const bandFromForm = (): { band: Band; source: string } => ({
+    band: BANDS[2],
+    source: "retrieved from HOMES (IRAS + CPF) — the extra money and household size declared on the form are recorded with the application",
+  });
+
+  const validate = (): { where: "crosscheck" | "children" | "details" | "contact" | "address" | "extra" | "residents" | "applicant" | "declared"; message: string } | null => {
+    const unmatched = rows.find((r) => !matchOf(r));
+    if (unmatched) return { where: "children", message: `${unmatched.name} no longer matches a child in the registry — the registry changed since the form was issued; void this draft and issue a fresh form.` };
+    // Section I's contact question, as the parent ticked it on the returned paper.
+    if (!detailsOk) return { where: "details", message: "Tick the parent's answer — are the printed contact details still correct?" };
+    if (detailsOk === "no" && !contact.trim()) return { where: "contact", message: "Enter the current contact number the parent wrote on the returned form." };
+    if (detailsOk === "no" && !address.trim()) return { where: "address", message: "Enter the current home address the parent wrote on the returned form." };
+    // Section II: the two declared fields, validated exactly like the online application.
+    if (!/^\d+(\.\d{1,2})?$/.test(extraIncome.trim())) return { where: "extra", message: "Enter the extra monthly money in dollars, or 0 if none." };
+    const people = Number(residents.trim());
+    if (!Number.isInteger(people) || people < 1 || people > 20)
+      return { where: "residents", message: "Enter the number of people currently living in the home (a whole number from 1 to 20)." };
+    if (!applicant.trim()) return { where: "applicant", message: "Enter the parent / guardian name as signed on the declaration." };
+    if (!declared) return { where: "declared", message: "Tick the confirmation — the declaration must be signed and dated on the paper form." };
+    const fresh = chosen.filter((r) => !r.blocked);
+    if (!fresh.length) return { where: "children", message: "Every child on this form already holds an application or a MOEFAS grant — there is nothing new to submit (AC-031)." };
+    // The cross-check box closes the form, so it validates last — errors surface top-to-bottom.
+    if (!checkedAgainst) return { where: "crosscheck", message: `Cross-check required: compare this entry against the signed form and draft ${draft.id}, then tick this confirmation.` };
+    return null;
+  };
+
+  const startReview = () => {
+    const err = validate();
+    if (err) { setError(err); focusOf(err)?.current?.focus(); return; }
+    setError(null);
+    setReviewing(true);
+  };
+
+  // Submit closes the loop: the form goes straight to MOE for the same assessment as an online one,
+  // the draft flips to "Returned" (the store links it to the new application by the draft id) and
+  // the staff lands on the Applications list with the new record on top.
+  const submit = () => {
+    const err = validate();
+    if (err) { setError(err); setReviewing(false); focusOf(err)?.current?.focus(); return; }
+    setError(null);
+    setReviewing(false);
+    setConfirming(false);
+    const { band } = bandFromForm();
+    actions.submitHardcopy({
+      studentIds: chosen.map((r) => r.student.id), band, school: schoolName, applicant: applicant.trim(), contact: contact.trim(), note,
+      by, entryMode: "manual",
+      address: address.trim(), email: draft.email,
+      detailsCorrected: detailsOk === "no" ? true : undefined,
+      extraIncome: Number(extraIncome) || 0,
+      residents: Number(residents) || 0,
+      declaredAt: declared ? new Date().toISOString().slice(0, 10) : undefined,
+      guardianNric: draft.guardianNric, draftId: draft.id,
+      extraIncomeDocs: extraDocs, residentsDocs: resDocs,
+    });
+    onSubmitted();
+  };
+
+  return (
+    <div className="space-y-4">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-1.5 rounded text-sm font-semibold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        <ArrowLeft size={16} weight="bold" aria-hidden="true" /> Back to the register
+      </button>
+      <Card title={`Key in the returned form — ${draft.id}`}>
+        {reviewing ? (
+        <div className="space-y-5">
+          <div className="space-y-1 rounded-control border border-line bg-surface-container-low p-4">
+            <p className="text-sm font-semibold text-on-surface">Check every field against the paper form</p>
+            <p className="text-[13px] text-on-surface-variant">The fields are frozen on this page — go back to fix anything, then submit.</p>
+          </div>
+          <section className="space-y-2">
+            <SectionTitle n="I" title="Particulars of the child" />
+            <ul className="space-y-1.5">
+              {rows.map((row, i) => {
+                const match = matchOf(row);
+                return (
+                  <li key={i} className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-medium text-on-surface">{i + 1}. {row.name}</span>
+                    <span className="text-[13px] text-on-surface-variant">{row.nric} · {row.school} · {row.level}</span>
+                    {match && (match.mineSchool
+                      ? <Badge tone="primary">Your school</Badge>
+                      : <Badge tone="neutral">Other school</Badge>)}
+                    {match?.blocked && <Badge tone="neutral">Already has an application</Badge>}
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="text-sm"><span className="text-on-surface-variant">Contact: </span><span className="font-medium">{contact.trim() || "—"}</span></p>
+            <p className="text-sm"><span className="text-on-surface-variant">Home address: </span><span className="font-medium">{address.trim() || "—"}</span></p>
+            <p className="text-sm"><span className="text-on-surface-variant">Email: </span><span className="font-medium">{draft.email || "—"}</span></p>
+            <p className="text-[13px] text-on-surface-variant">
+              {detailsOk === "no"
+                ? "Parent ticked No — the number and address above are what they wrote on the returned form."
+                : "Parent ticked Yes — the printed contact details are still correct."}
+            </p>
+            <p className="text-[13px] text-on-surface-variant">
+              Returned copy of <span className="font-medium text-on-surface">{draft.id}</span>, issued{" "}
+              {new Date(draft.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} — cross-checked against the draft.
+            </p>
+          </section>
+          <section className="space-y-2 border-t border-line pt-4">
+            <SectionTitle n="II" title="Household income" />
+            <p className="text-sm">
+              <span className="text-on-surface-variant">Extra monthly money (not in HOMES): </span>
+              <span className="font-medium">S${extraIncome.trim() || "—"}</span>
+            </p>
+            <p className="text-sm">
+              <span className="text-on-surface-variant">People currently living in the home: </span>
+              <span className="font-medium">{residents.trim() || "—"}</span>
+            </p>
+            <p className="text-sm">
+              <span className="text-on-surface-variant">Income band: </span>
+              <span className="font-medium">{bandFromForm().band.label}</span>
+              <span className="text-[13px] text-on-surface-variant"> — {bandFromForm().source}</span>
+            </p>
+          </section>
+          <section className="space-y-2 border-t border-line pt-4">
+            <SectionTitle n="III" title="Declaration and agreement by the applicant" />
+            <p className="text-sm font-medium">{declared ? `Signed and dated by ${applicant.trim() || "the applicant"}` : "Not confirmed"}</p>
+            {note.trim() && <p className="text-[13px] text-on-surface-variant">Note on the form: {note.trim()}</p>}
+          </section>
+          {(extraDocs.length > 0 || resDocs.length > 0) && (
+            <div className="space-y-2 border-t border-line pt-4">
+              <p className="text-sm font-bold text-on-surface">Supporting documents (optional)</p>
+              {extraDocs.length > 0 && (
+                <p className="text-[13px] text-on-surface-variant">For the extra money declared: {extraDocs.join(", ")}</p>
+              )}
+              {resDocs.length > 0 && (
+                <p className="text-[13px] text-on-surface-variant">For the people living in the home: {resDocs.join(", ")}</p>
+              )}
+            </div>
+          )}
+          {error && <p className="text-[13px] font-medium text-alert" role="alert">{error.message}</p>}
+          <div className="flex justify-between gap-3">
+            <Button variant="secondary" onClick={() => setReviewing(false)}>Back to edit</Button>
+            <Button onClick={() => setConfirming(true)}>Submit</Button>
+          </div>
+        </div>
+        ) : (
+        <div className="space-y-5">
+          <div className="space-y-2 rounded-control border border-line bg-surface-container-low p-3">
+            <p className="text-sm font-semibold text-on-surface">{draft.id} · {draft.applicant}</p>
+            <p className="text-[13px] text-on-surface-variant">
+              Issued {new Date(draft.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} by {draft.issuedBy}
+              {" "}· {draft.children.length} {draft.children.length > 1 ? "children" : "child"}
+            </p>
+          </div>
+          <section className="space-y-3">
+            <SectionTitle n="I" title="Particulars of the child" />
+            <ul className="space-y-1.5">
+              {rows.map((row, i) => {
+                const match = matchOf(row);
+                return (
+                  <li key={i} className="space-y-0.5">
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <span className="font-medium text-on-surface">{i + 1}. {row.name}</span>
+                      <span className="text-[13px] text-on-surface-variant">{row.nric} · {row.school} · {row.level}</span>
+                      {match && (match.mineSchool
+                        ? <Badge tone="primary">Your school</Badge>
+                        : <Badge tone="neutral">Other school</Badge>)}
+                      {match?.blocked && <Badge tone="neutral">Already has an application</Badge>}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            {error?.where === "children" && <p role="alert" className="text-[13px] font-medium text-alert">{error.message}</p>}
+            <p className="text-sm"><span className="text-on-surface-variant">Contact (as printed): </span><span className="font-medium">{draft.contact || "—"}</span></p>
+            <p className="text-sm"><span className="text-on-surface-variant">Home address (as printed): </span><span className="font-medium">{draft.address || "—"}</span></p>
+            {draft.email && <p className="text-sm"><span className="text-on-surface-variant">Email: </span><span className="font-medium">{draft.email}</span></p>}
+            <div className={`rounded-control border px-3 py-2 text-[13px] ${error?.where === "details" ? "border-alert" : "border-line"} bg-surface-container-low`}>
+              <p className="font-semibold text-on-surface">
+                Are the printed contact details still correct? <span className="text-alert" aria-hidden>*</span>
+              </p>
+              <div className="mt-2 flex flex-col gap-1.5">
+                <label className="flex items-start gap-2.5">
+                  <input
+                    ref={detailsRef}
+                    type="checkbox"
+                    className="mt-0.5 size-4 accent-[#8A2538]"
+                    checked={detailsOk === "yes"}
+                    onChange={(e) => { setDetailsOk(e.target.checked ? "yes" : null); if (error?.where === "details") setError(null); }}
+                  />
+                  <span>Yes — the contact number and home address printed above are still correct.</span>
+                </label>
+                <label className="flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 size-4 accent-[#8A2538]"
+                    checked={detailsOk === "no"}
+                    onChange={(e) => { setDetailsOk(e.target.checked ? "no" : null); if (error?.where === "details") setError(null); }}
+                  />
+                  <span>No — the parent wrote their current number and address on the form; key them in below.</span>
+                </label>
+              </div>
+              {error?.where === "details" && <p role="alert" className="mt-2 font-medium text-alert">{error.message}</p>}
+            </div>
+            {detailsOk === "no" && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field required label="Current contact number" error={error?.where === "contact" ? error.message : undefined}>
+                  <input
+                    ref={contactRef}
+                    className={inputClass}
+                    aria-label="Current contact number"
+                    value={contact}
+                    onChange={(e) => { setContact(e.target.value); if (error?.where === "contact") setError(null); }}
+                  />
+                </Field>
+                <Field required label="Current home address" error={error?.where === "address" ? error.message : undefined}>
+                  <input
+                    ref={addressRef}
+                    className={inputClass}
+                    aria-label="Current home address"
+                    value={address}
+                    onChange={(e) => { setAddress(e.target.value); if (error?.where === "address") setError(null); }}
+                  />
+                </Field>
+              </div>
+            )}
+          </section>
+
+          <section className="space-y-3 border-t border-line pt-4">
+            <SectionTitle n="II" title="Household income" />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field required label="Extra monthly money (S$)" error={error?.where === "extra" ? error.message : undefined}>
+                <input
+                  ref={extraRef}
+                  className={inputClass}
+                  aria-label="Extra monthly money"
+                  placeholder="e.g. 0"
+                  inputMode="decimal"
+                  value={extraIncome}
+                  onChange={(e) => { setExtraIncome(e.target.value); if (error?.where === "extra") setError(null); }}
+                />
+              </Field>
+              <Field required label="People currently living in your home" error={error?.where === "residents" ? error.message : undefined}>
+                <input
+                  ref={resRef}
+                  className={inputClass}
+                  aria-label="People currently living in the home"
+                  type="number"
+                  min={1}
+                  max={20}
+                  step={1}
+                  inputMode="numeric"
+                  value={residents}
+                  onChange={(e) => { setResidents(e.target.value); if (error?.where === "residents") setError(null); }}
+                />
+              </Field>
+            </div>
+          </section>
+
+          <section className="space-y-3 border-t border-line pt-4">
+            <SectionTitle n="III" title="Declaration and agreement by the applicant" />
+            <ul className="list-disc space-y-1 pl-5 text-sm text-on-surface-variant">
+              <li>No child on this form receives financial assistance from more than one MOE-funded school or institution.</li>
+              <li>The applicant authorises monthly withdrawals from the child&apos;s Edusave account for school fees and approved expenses while on MOE FAS.</li>
+              <li>MOE and the schools may verify the information, reassess the household, and share the data needed to administer the scheme.</li>
+              <li>The information given is true — false information is an offence under Section 182 of the Penal Code 1871.</li>
+            </ul>
+            {/* The paper form collects the parent/guardian name only here — at the declaration the applicant signs. */}
+            <Field label="Parent / guardian name (as signed on the declaration)" required error={error?.where === "applicant" ? error.message : undefined}>
+              <input ref={applicantRef} className={inputClass} value={applicant} onChange={(e) => { setApplicant(e.target.value); if (error?.where === "applicant") setError(null); }} placeholder="Name as written on the form" />
+            </Field>
+            <label className={`flex items-start gap-2.5 rounded-control border px-3 py-2 text-sm ${error?.where === "declared" ? "border-alert" : "border-line"}`}>
+              <input ref={declaredRef} type="checkbox" className="mt-0.5 size-4 accent-[#8A2538]" checked={declared} onChange={(e) => { setDeclared(e.target.checked); if (error?.where === "declared") setError(null); }} />
+              <span>
+                The declaration is signed and dated on the paper form by <span className="font-semibold">{applicant.trim() || "the applicant"}</span>
+              </span>
+            </label>
+            {error?.where === "declared" && <p role="alert" className="text-[13px] font-medium text-alert">{error.message}</p>}
+            <Field label="Anything else on the form (optional)">
+              <textarea rows={2} className={`${inputClass} py-2`} value={note} onChange={(e) => setNote(e.target.value)} />
+            </Field>
+          </section>
+
+          {/* Optional evidence, not a numbered section of the paper form: it is recorded last, after
+              the answers it backs are keyed in, just before the cross-check closes the form. */}
+          <div className="space-y-3 border-t border-line pt-4">
+            <p className="text-sm font-bold text-on-surface">Supporting documents (optional)</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-[13px] font-semibold text-on-surface">For the extra money declared</p>
+                <DocSlot name="extra money" docs={extraDocs} onChange={setExtraDocs} />
+              </div>
+              <div>
+                <p className="text-[13px] font-semibold text-on-surface">For the people living in the home</p>
+                <DocSlot name="people living in the home" docs={resDocs} onChange={setResDocs} />
+              </div>
+            </div>
+          </div>
+
+          {/* The cross-check closes the form: the staff reads the whole keyed-in entry first, then
+              confirms against the signed paper — so it sits at the very end, above the button. */}
+          <div className={`rounded-control border px-3 py-2 text-[13px] ${error?.where === "crosscheck" ? "border-alert" : "border-line"} bg-surface-container-low`}>
+            <label className="flex items-start gap-2.5">
+              <input ref={crossRef} type="checkbox" className="mt-0.5 size-4 accent-[#8A2538]" checked={checkedAgainst} onChange={(e) => { setCheckedAgainst(e.target.checked); if (error?.where === "crosscheck") setError(null); }} />
+              <span>
+                I have compared this entry with the signed form and draft {draft.id} — the children match and Section II is as the parent declared.{" "}
+                <span className="text-alert" aria-hidden>*</span>
+              </span>
+            </label>
+            {error?.where === "crosscheck" && <p role="alert" className="mt-2 font-medium text-alert">{error.message}</p>}
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={startReview}>Review the form</Button>
+          </div>
+        </div>
+        )}
+      </Card>
+
+      <Modal
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        title="Submit this application?"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirming(false)}>Cancel</Button>
+            <Button onClick={submit}>Submit</Button>
+          </>
+        }
+      >
+        <p className="text-sm text-on-surface">
+          One application for {rows.map((r) => r.name).join(", ")} — it goes straight to MOE for assessment: MOEFAS is decided
+          instantly, and children outside the bands are referred to their school&apos;s SBFAS review queue.
+        </p>
+        <p className="mt-2 text-[13px] text-on-surface-variant">
+          The draft {draft.id} flips to Returned, and the outcome is sent to the parent by SMS/email automatically once decided.
+        </p>
+      </Modal>
     </div>
   );
 }
@@ -350,87 +773,19 @@ export default function HardcopyEntry() {
   const mySchool = staff?.schoolCode ?? "";
   const schoolName = reg.schools.find((s) => s.code === mySchool)?.name ?? mySchool;
 
-  const mine = useMemo(() => reg.students.filter((s) => schoolOfStudent(s, reg.classes) === mySchool), [reg.students, reg.classes, mySchool]);
-
   const schoolNameOf = (code: string) => reg.schools.find((x) => x.code === code)?.name ?? code;
   const schoolOfLevelName = (level: string) => schoolNameOf(schoolOfLevel(level as Level));
   // Section I lists every child the paper form names, across schools: this school's children are
   // highlighted, and a child at another school shows their school — their own school runs any SBFAS
-  // review, because the review queue follows the child's school.
+  // review, because the review queue follows the child's school. Scope (Sprint 3): the school user's
+  // own searching/keying covers only their school — other-school siblings reach the form solely
+  // through the shared registry (family lookup or issued draft), which pulls the whole family.
   const roster = useMemo(() => reg.students.map((s) => {
     const code = schoolOfStudent(s, reg.classes);
     const grant = fas.moefas[s.id];
     const app = latestAppFor(fas.apps, s.id);
     return { student: s, school: schoolNameOf(code), mineSchool: code === mySchool, grant, app, blocked: !!(grant || app) };
   }), [reg.students, reg.classes, reg.schools, fas.moefas, fas.apps, mySchool]);
-
-  // One paper form at a time: the staff member works through a single form, scanning it or typing it in.
-  const [scanned, setScanned] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  // Section I mirrors the paper form's child table: however many children the form lists, that many
-  // rows — the staff adds/removes rows to match it and keys each by hand (or the scan pre-fills them)
-  // with the form's own columns — NRIC, name, current school, level. The NRIC is matched against the
-  // registry; children already holding an application stay on the form too (the store keeps one
-  // application per child, AC-031).
-  const [childrenRows, setChildrenRows] = useState<ChildDraft[]>(() => [blankChild()]);
-  // A hand-entered row becomes a child record through the NRIC — that is the match; everything else
-  // on the row is transcription. Case and spacing differences are tolerated.
-  const normNric = (v: string) => v.trim().replace(/\s+/g, "").toUpperCase();
-  const byNric = useMemo(() => new Map(roster.map((r) => [normNric(r.student.nric), r])), [roster]);
-  const matchOf = (row: ChildDraft) => (row.nric.trim() ? byNric.get(normNric(row.nric)) : undefined);
-  const rowFilled = (row: ChildDraft) => !!(row.nric.trim() || row.name.trim() || row.school.trim() || row.level.trim());
-  const [applicant, setApplicant] = useState("");
-  const [contact, setContact] = useState("");
-  const [address, setAddress] = useState("");
-  const [email, setEmail] = useState("");
-  const [note, setNote] = useState("");
-  // Section II: HOMES-only by default; the household table opens only when administrative income is declared.
-  const [adminIncome, setAdminIncome] = useState(false);
-  const [welfareHome, setWelfareHome] = useState(false);
-  const [homesOnly, setHomesOnly] = useState(false);
-  // The welfare home letter (PDF) the exception rests on, with the OCR reading of it.
-  const [letter, setLetter] = useState<{ file: string; ocr?: { home: string; dated: string } } | null>(null);
-  const [letterReading, setLetterReading] = useState(false);
-  // Click-to-view dialog for the attached letter.
-  const [letterView, setLetterView] = useState(false);
-  // The uploaded form PDF itself (demo): the OCR read the fields off it — click the chip to view it,
-  // remove it to start over with another file.
-  const [formFile, setFormFile] = useState<string | null>(null);
-  const [formView, setFormView] = useState(false);
-  const [members, setMembers] = useState<MemberDraft[]>([blankMember()]);
-  // Section IV & VI, plus Section V's hard-copy request.
-  const [transportMode, setTransportMode] = useState<TransportMode | "">("");
-  const [imdaCopy, setImdaCopy] = useState<"" | "yes" | "no">("");
-  const [declared, setDeclared] = useState(false);
-  // Where this form goes, chosen at the submit step: MOE for the MOEFAS-first assessment (flow 1), or
-  // straight to this school's SBFAS queue as a separate request after a rejection (flow 2).
-  const [submitMode, setSubmitMode] = useState<"moe" | "sbfas">("moe");
-  // The final check: a separate read-only page with every field frozen — Submit only lives there.
-  const [reviewing, setReviewing] = useState(false);
-  // Submit asks once more in a dialog before the form leaves the staff member's hands.
-  const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState("");
-
-  // Flow 2 shares the same form: what changed since the rejected request, read off the new form.
-  const [reason, setReason] = useState("");
-  // Students whose latest SBFAS application was rejected (and nothing pending since) — the only children
-  // a separate new request can be made for.
-  const rejectedStudents = useMemo(() => mine.filter((s) => {
-    const mine2 = fas.apps.filter((x) => x.studentId === s.id && x.status !== "Pending");
-    return !fas.moefas[s.id] && !fas.apps.some((x) => x.studentId === s.id && x.status === "Pending") && mine2.some((x) => x.status === "Rejected");
-  }), [mine, fas.apps, fas.moefas]);
-  const rejectedIds = useMemo(() => new Set(rejectedStudents.map((s) => s.id)), [rejectedStudents]);
-  // The request the new one replaces — context for the first eligible child on the form.
-  const reFirstId = submitMode === "sbfas"
-    ? childrenRows.flatMap((row) => {
-        const m = matchOf(row);
-        return m && rejectedIds.has(m.student.id) ? [m.student.id] : [];
-      })[0] ?? ""
-    : "";
-  const reLast = useMemo(
-    () => (reFirstId ? [...fas.apps].filter((x) => x.studentId === reFirstId && x.status === "Rejected").sort((a, b) => attemptOf(b) - attemptOf(a))[0] ?? null : null),
-    [reFirstId, fas.apps],
-  );
 
   const paperApps = useMemo(
     () => fas.familyApps.filter((f) => f.school === schoolName || f.school === mySchool),
@@ -439,173 +794,89 @@ export default function HardcopyEntry() {
   // History drill-down: each row navigates to its own page (see HardcopyDetailPage), so the list
   // stays scannable however long it gets.
   const navigate = useNavigate();
-  // One entry form: the submit step decides where it goes (MOE-first, or straight to this school's
-  // SBFAS queue after a rejection), then the two lists.
-  type View = "new" | "apps";
+  // One register: the staff creates the form (a draft), prints it, and when the signed copy comes
+  // back they CLICK THE DRAFT'S ROW to key in what the parent filled in. The old "New form" tab is
+  // gone (Sprint 3 refinement): entry happens directly on the issued draft, so nothing is ever keyed
+  // in without its issued record — and the form's pre-printed fields carry over locked.
+  type View = "issue" | "apps";
   // Returning from a paper-application page reopens the list the staff member came from.
   const initialView = (useLocation().state as { hardcopyView?: View } | null)?.hardcopyView;
-  const [view, setView] = useState<View>(initialView ?? "new");
+  const [view, setView] = useState<View>(initialView ?? "issue");
   const views: [View, string][] = [
-    ["new", "New form"],
+    ["issue", "Issue form"],
     ["apps", "Applications"],
   ];
+  // The draft whose returned copy is being keyed in — set by clicking a row in the register below.
+  const [keyingId, setKeyingId] = useState<string | null>(null);
+  const keyingDraft = keyingId ? fas.drafts.find((d) => d.id === keyingId) ?? null : null;
 
-  const scan = (demo: OcrForm) => {
-    setScanning(true);
-    setError("");
-    // Mock OCR: a short "reading the form" pause, then the fields pre-fill for verification.
+  // "Find a draft" (next to the NRIC box on the issue card): matches a draft by its code, the
+  // parent's name, the guardian NRIC or any child's name — filters the register below.
+  const [draftQuery, setDraftQuery] = useState("");
+  const shownDrafts = useMemo(() => {
+    const q = draftQuery.trim().toLowerCase();
+    if (!q) return fas.drafts;
+    return fas.drafts.filter((d) =>
+      d.id.toLowerCase().includes(q) ||
+      d.applicant.toLowerCase().includes(q) ||
+      d.guardianNric.toLowerCase().includes(q) ||
+      d.children.some((c) => c.name.toLowerCase().includes(q)),
+    );
+  }, [fas.drafts, draftQuery]);
+
+  // Issue-form tab (Sprint 3: print the form first, key in the returned copy): same registry, same
+  // lookup — but creating the form only RECORDS THE DRAFT; the staff prints it from the draft's row
+  // in the register below, then hands the paper to the parent, who checks the pre-filled fields,
+  // declares the household (Section II) and signs (Section III).
+  const [issueNric, setIssueNric] = useState("");
+  const [issueLooking, setIssueLooking] = useState(false);
+  const [issueFound, setIssueFound] = useState<GuardianRecord | null>(null);
+  const [issueMiss, setIssueMiss] = useState(false);
+  // The print popup was blocked — the draft is still recorded; "Print" on its row recovers it.
+  const [printMiss, setPrintMiss] = useState(false);
+  const issueRows = useMemo(
+    () => (issueFound ? issueFound.children.flatMap((name) => {
+      const r = roster.find((x) => x.student.name === name);
+      return r ? [r] : [];
+    }) : []),
+    [issueFound, roster],
+  );
+  const findForIssue = () => {
+    const rec = guardianByNric(issueNric);
+    setIssueLooking(true);
+    setIssueFound(null);
+    setIssueMiss(false);
+    // Mock registry call: a short pause, then the family lands (or does not).
     window.setTimeout(() => {
-      setScanned(true);
-      setScanning(false);
-      setFormFile(demo.file);
-      setApplicant(demo.applicant);
-      setContact(demo.contact);
-      setAddress(demo.address);
-      setEmail(demo.email);
-      setNote(demo.note);
-      setTransportMode(demo.transportMode);
-      setImdaCopy(demo.imdaHardcopy);
-      setDeclared(true); // the declaration box is ticked on the paper form
-      // The form declared other administrative income, so the scanner read the Section II rows too —
-      // they pre-fill the table and every cell stays editable (the staff member checks the OCR reading).
-      setAdminIncome(true);
-      setHomesOnly(false);
-      setMembers(demo.members.map((m) => ({ ...m })));
-      // The scanner read the form's child table — the rows pre-fill and stay editable.
-      setChildrenRows((rows) => (rows.some(rowFilled) ? rows : demo.children.map((c) => ({ ...c }))));
-    }, 1200);
-  };
-
-  const reset = () => {
-    setScanned(false); setChildrenRows([blankChild()]);
-    setApplicant(""); setContact(""); setAddress(""); setEmail(""); setNote("");
-    setAdminIncome(false); setWelfareHome(false); setHomesOnly(false); setLetter(null); setLetterReading(false);
-    setMembers([blankMember()]); setTransportMode(""); setImdaCopy(""); setDeclared(false);
-    setError(""); setSubmitMode("moe"); setReason(""); setReviewing(false);
-    setFormFile(null); setFormView(false);
-  };
-
-  const setChildRow = (i: number, patch: Partial<ChildDraft>) =>
-    setChildrenRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
-
-  // Attach the welfare home letter (PDF); the mock OCR then "reads" the home and the date off it.
-  const onLetterFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setLetter({ file: f.name });
-    setLetterReading(true);
-    window.setTimeout(() => {
-      setLetter((l) => (l ? { ...l, ocr: WELFARE_LETTER_OCR } : l));
-      setLetterReading(false);
-    }, 1000);
-  };
-
-  const setMember = (i: number, patch: Partial<MemberDraft>) =>
-    setMembers((ms) => ms.map((m, j) => (j === i ? { ...m, ...patch } : m)));
-
-  // The form itself carries no band: for employment/trade income MOE retrieves it from HOMES
-  // (IRAS + CPF); when other administrative income is declared, it is computed from the Section II
-  // table (GHI ÷ household members = per-capita income). Both are mocked here.
-  const bandFromForm = (): { band: Band; source: string } => {
-    if (adminIncome && !welfareHome) {
-      const named = members.filter((m) => m.name.trim());
-      if (named.length) {
-        const ghi = named.reduce((t, m) => t + (Number(m.gross) || 0) + (Number(m.other) || 0), 0);
-        const size = named.length + childrenRows.filter((row) => matchOf(row)).length; // declared members + the children matched on the form
-        const pci = ghi / Math.max(1, size);
-        const band = pci <= 750 ? BANDS[0] : pci <= 1000 ? BANDS[1] : pci <= 1500 ? BANDS[2] : BANDS[3];
-        return { band, source: `declared in Section II — GHI S$${ghi.toLocaleString("en-SG")} ÷ ${size} in the household = S$${Math.round(pci).toLocaleString("en-SG")} per person` };
+      setIssueLooking(false);
+      if (!rec) {
+        setIssueMiss(true);
+        return;
       }
-    }
-    return { band: BANDS[2], source: "retrieved from HOMES (IRAS + CPF) — employment/trade income only" };
+      setIssueFound(rec);
+    }, 500);
   };
-
-  // Every gate the form must pass — shared by the entry to the review page and the final Submit there.
-  const validate = (): string | null => {
-    const rows = childrenRows.map((row, i) => ({ i, row, match: matchOf(row) })).filter((r) => rowFilled(r.row));
-    const chosen = rows.flatMap((r) => (r.match ? [r.match] : []));
-    const ids = chosen.map((r) => r.student.id);
-    if (ids.length !== new Set(ids).size) return "The same child is listed twice — each child appears once on the form.";
-    const unmatched = rows.find((r) => !r.match);
-    if (unmatched) return `Row ${unmatched.i + 1} doesn't match a child in the registry — check the NRIC (BC/NRIC no.) and name against the form, or clear the row.`;
-    if (submitMode === "sbfas") {
-      const eligible = chosen.filter((r) => rejectedIds.has(r.student.id));
-      const notEligible = chosen.filter((r) => !rejectedIds.has(r.student.id));
-      if (!eligible.length) return "A new SBFAS request needs a child on the form whose latest application was rejected — add them in Section I.";
-      if (notEligible.length) return `${notEligible[0].student.name} cannot take a new SBFAS request — only a child whose latest application was rejected can. Submit to MOE instead, or clear that row.`;
-      if (!reason.trim()) return "Say what changed since the rejected request.";
-      return null;
-    }
-    if (welfareHome && !letter) return "Attach the welfare home letter (PDF) — Section II is only skipped with the letter.";
-    if (!chosen.length || !applicant.trim() || !contact.trim() || !address.trim() || !declared) {
-      return "Complete Sections I and VI: list at least one child, the contact and home address, and sign off the declaration with the parent/guardian name.";
-    }
-    const fresh = chosen.filter((r) => !r.blocked);
-    if (!fresh.length) return "Every child on this form already holds an application or a MOEFAS grant — there is nothing new to submit (AC-031).";
-    return null;
+  const issueForm = () => {
+    if (!issueFound || !issueRows.length) return;
+    // The draft record is mandatory (Sherly): the system records the draft the moment the form is
+    // created, before anything is printed — a form can never leave the school without the system
+    // remembering who holds it. Printing happens separately, from the draft's row in the register.
+    const draft: FamilyDraft = {
+      id: nextDraftId(fas.drafts),
+      status: "draft",
+      guardianNric: issueFound.nric,
+      applicant: issueFound.name,
+      contact: issueFound.contact,
+      address: issueFound.address,
+      email: issueFound.email,
+      children: issueRows.map((r) => ({ studentId: r.student.id, name: r.student.name, nric: r.student.nric, school: r.school, level: r.student.level })),
+      issuedAt: new Date().toISOString().slice(0, 10),
+      issuedBy: by,
+    };
+    actions.issueDraft(draft);
+    setIssueFound(null);
+    setIssueNric("");
   };
-
-  // The form freezes on a read-only page first; Submit only exists there.
-  const startReview = () => {
-    const err = validate();
-    if (err) { setError(err); return; }
-    setError("");
-    setReviewing(true);
-  };
-
-  // Submit records the form and drops the staff member on the Applications list — the new record is
-  // right there on top; the New form tab is back to a blank form for the next paper submission.
-  const submit = () => {
-    const err = validate();
-    if (err) { setError(err); setReviewing(false); return; }
-    setError("");
-    setReviewing(false);
-    const { band } = bandFromForm();
-    const chosen = childrenRows.flatMap((row) => {
-      const m = matchOf(row);
-      return m && rowFilled(row) ? [m] : [];
-    });
-    // Flow 2: a separate request straight into this school's SBFAS queue — MOEFAS is not re-assessed.
-    if (submitMode === "sbfas") {
-      const eligible = chosen.filter((r) => rejectedIds.has(r.student.id));
-      eligible.forEach((r) => actions.submitSbfasReapply({
-        studentId: r.student.id, reason: reason.trim(), by,
-        school: schoolName, applicant: applicant.trim(), contact: contact.trim(),
-        entryMode: scanned ? "ocr" : "manual",
-      }));
-    } else {
-      actions.submitHardcopy({
-        studentIds: chosen.map((r) => r.student.id), band, school: schoolName, applicant: applicant.trim(), contact: contact.trim(), note,
-        by, entryMode: scanned ? "ocr" : "manual",
-        address: address.trim(), email: email.trim() || undefined, transportMode: transportMode || undefined,
-        hasAdminIncome: adminIncome && !welfareHome,
-        household: adminIncome && !welfareHome ? members.filter((m) => m.name.trim()).map((m) => ({
-          name: m.name.trim(), nric: m.nric.trim() || undefined, relationship: m.relationship.trim(), age: Number(m.age) || 0, occupation: m.occupation,
-          gross: Number(m.gross) || 0, other: Number(m.other) || 0,
-        })) : undefined,
-        welfareHome: welfareHome || undefined,
-        welfareLetter: welfareHome && letter ? { file: letter.file, home: letter.ocr?.home, dated: letter.ocr?.dated } : undefined,
-        homesOnly: homesOnly || undefined,
-        imdaHardcopy: imdaCopy || undefined,
-        declaredAt: declared ? new Date().toISOString().slice(0, 10) : undefined,
-        formFile: scanned ? formFile ?? undefined : undefined,
-      });
-    }
-    reset();
-    setView("apps");
-  };
-
-  const pickedStudents = childrenRows.flatMap((row) => {
-    const m = matchOf(row);
-    return m ? [m.student] : [];
-  });
-  // School bus is a primary-level subsidy and follows THIS school's children on the form — a
-  // primary-level child at another school does not unlock it here (their own school handles them).
-  const schoolBusAllowed = childrenRows.some((row) => {
-    const m = matchOf(row);
-    return !!m?.mineSchool && m.student.level.startsWith("P");
-  });
-  const totalGhi = members.reduce((t, m) => t + (Number(m.gross) || 0) + (Number(m.other) || 0), 0);
 
   return (
     <div className="space-y-4">
@@ -617,482 +888,214 @@ export default function HardcopyEntry() {
         ))}
       </div>
 
-      {view === "new" && (
-      <Card
-        title="Submit a paper MOE FAS form"
-        action={
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button size="sm" variant="secondary" onClick={() => scan(OCR_FORMS.sbfas)} disabled={scanning || reviewing}><UploadSimple size={16} weight="bold" aria-hidden="true" />{scanning ? "Reading the PDF…" : "Upload form PDF · SBFAS band (demo OCR)"}</Button>
-            <Button size="sm" variant="secondary" onClick={() => scan(OCR_FORMS.moefas)} disabled={scanning || reviewing}><UploadSimple size={16} weight="bold" aria-hidden="true" />{scanning ? "Reading the PDF…" : "Upload form PDF · MOEFAS band (demo OCR)"}</Button>
-          </div>
-        }
-      >
-        {reviewing ? (
-        <div className="space-y-5">
-          <div className="space-y-1 rounded-control border border-line bg-surface-container-low p-4">
-            <p className="text-sm font-semibold text-on-surface">Check every field against the paper form</p>
-            <p className="text-[13px] text-on-surface-variant">The fields are frozen on this page — go back to fix anything, then submit.</p>
-            {formFile && (
-              <p className="text-[13px]">
-                <button
-                  type="button"
-                  onClick={() => setFormView(true)}
-                  className="rounded font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                >
-                  View the uploaded scan ({formFile})
-                </button>
-              </p>
-            )}
-          </div>
-          <section className="space-y-2">
-            <SectionTitle n="I" title="Particulars of the child" />
-            <ul className="space-y-1.5">
-              {childrenRows.map((row, i) => ({ row, i })).filter(({ row }) => rowFilled(row)).map(({ row, i }) => {
-                const match = matchOf(row);
-                return (
-                  <li key={i} className="flex flex-wrap items-center gap-2 text-sm">
-                    <span className="font-medium text-on-surface">{i + 1}. {row.name || "—"}</span>
-                    <span className="text-[13px] text-on-surface-variant">{row.nric || "—"} · {row.school || "—"} · {row.level || "—"}</span>
-                    {match && (match.mineSchool
-                      ? <Badge tone="primary">Your school</Badge>
-                      : <Badge tone="neutral">Other school</Badge>)}
-                    {match?.blocked && <Badge tone="neutral">Already has an application</Badge>}
-                  </li>
-                );
-              })}
-            </ul>
-            <p className="text-sm"><span className="text-on-surface-variant">Contact: </span><span className="font-medium">{contact.trim() || "—"}</span></p>
-            <p className="text-sm"><span className="text-on-surface-variant">Home address: </span><span className="font-medium">{address.trim() || "—"}</span></p>
-            <p className="text-sm"><span className="text-on-surface-variant">Email: </span><span className="font-medium">{email.trim() || "—"}</span></p>
-          </section>
-          <section className="space-y-2 border-t border-line pt-4">
-            <SectionTitle n="II" title="Information on other household members" />
-            {welfareHome ? (
-              <p className="text-sm">
-                <span className="text-on-surface-variant">Welfare home resident — letter: </span>
-                <span className="font-medium">{letter?.file ?? "not attached"}</span>
-                {letter?.ocr && <span className="text-[13px] text-on-surface-variant"> · OCR read {letter.ocr.home}, dated {letter.ocr.dated}</span>}
-              </p>
-            ) : adminIncome ? (
-              <ul className="space-y-1">
-                {members.filter((m) => m.name.trim()).map((m, i) => (
-                  <li key={i} className="text-sm">
-                    <span className="font-medium">{m.name}</span>
-                    <span className="text-[13px] text-on-surface-variant"> · {m.nric || "—"} · {m.relationship} · {m.age} · {m.occupation} · gross S${m.gross || 0} · other S${m.other || 0}</span>
-                  </li>
-                ))}
-                <li className="text-sm"><span className="text-on-surface-variant">Total GHI: </span><span className="font-medium">S${totalGhi.toLocaleString("en-SG")} / month</span></li>
-              </ul>
-            ) : homesOnly ? (
-              <p className="text-sm text-on-surface-variant">
-                Only employment and/or trade income — Section II is not required; the bands come from HOMES (IRAS + CPF).
-              </p>
-            ) : (
-              <p className="text-sm text-on-surface-variant">Employment/trade income only — nothing keyed in.</p>
-            )}
-            <p className="text-sm">
-              <span className="text-on-surface-variant">Income band (derived): </span>
-              <span className="font-medium">{bandFromForm().band.label}</span>
-              <span className="text-[13px] text-on-surface-variant"> — {bandFromForm().source}</span>
-            </p>
-          </section>
-          <section className="space-y-2 border-t border-line pt-4">
-            <SectionTitle n="IV" title="Mode of transport between home and school" />
-            <p className="text-sm font-medium">{transportMode || "—"}</p>
-          </section>
-          <section className="space-y-2 border-t border-line pt-4">
-            <SectionTitle n="V" title="Subsidised broadband and/or laptop/tablet" />
-            <p className="text-sm"><span className="text-on-surface-variant">Hard copy of the DigitalAccess@Home form: </span><span className="font-medium">{imdaCopy === "yes" ? "Yes" : imdaCopy === "no" ? "No" : "—"}</span></p>
-          </section>
-          <section className="space-y-2 border-t border-line pt-4">
-            <SectionTitle n="VI" title="Declaration and agreement by the applicant" />
-            <p className="text-sm font-medium">{declared ? `Signed and dated by ${applicant.trim() || "the applicant"}` : "Not confirmed"}</p>
-            {note.trim() && <p className="text-[13px] text-on-surface-variant">Note on the form: {note.trim()}</p>}
-          </section>
-          <section className="space-y-2 border-t border-line pt-4">
-            <SectionTitle n="VII" title="Where this form goes" />
-            <p className="text-sm font-medium">{submitMode === "moe" ? "To MOE for assessment — the first application" : "To this school's SBFAS review queue — a separate request"}</p>
-            {submitMode === "sbfas" && reason.trim() && <p className="text-[13px] text-on-surface-variant">What changed: {reason.trim()}</p>}
-          </section>
-          {error && <p className="text-[13px] font-medium text-alert" role="alert">{error}</p>}
-          <div className="flex justify-between gap-3">
-            <Button variant="secondary" onClick={() => setReviewing(false)}>Back to edit</Button>
-            <Button onClick={() => setConfirming(true)}>Submit</Button>
-          </div>
-        </div>
-        ) : (
-        <div className="space-y-5">
-          {formFile && (
-            <div className="flex flex-wrap items-center gap-2 rounded-control border border-line bg-surface-container-low px-3 py-2 text-[13px]">
-              <span className="text-on-surface-variant">Uploaded form:</span>
-              <button
-                type="button"
-                onClick={() => setFormView(true)}
-                className="inline-flex items-center gap-1.5 rounded-control px-1.5 py-0.5 font-medium text-primary hover:bg-primary-fixed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-              >
-                <FilePdf size={14} weight="bold" aria-hidden="true" /> {formFile}
-              </button>
-              <span className="text-on-surface-variant">· fields pre-filled by OCR — verify every one</span>
-              <button
-                type="button"
-                aria-label="Remove the uploaded form"
-                className="rounded-control p-1 hover:bg-surface-container-lowest"
-                onClick={reset}
-              >
-                <X size={14} weight="bold" aria-hidden="true" />
-              </button>
-            </div>
-          )}
-          <section className="space-y-3">
-            <SectionTitle n="I" title="Particulars of the child" />
-            <Field label="Children on the form" required>
-              <div className="space-y-2 rounded-control border border-line p-3">
-                <div className="hidden gap-2 sm:grid sm:grid-cols-[auto_1fr_1.3fr_1.3fr_0.6fr_auto]">
-                  <span className="w-4" />
-                  <span className="text-[12px] font-semibold leading-tight text-on-surface-variant">BC/NRIC No.</span>
-                  <span className="text-[12px] font-semibold leading-tight text-on-surface-variant">Name (Underline Surname)</span>
-                  <span className="text-[12px] font-semibold leading-tight text-on-surface-variant">Name of Current School</span>
-                  <span className="text-[12px] font-semibold leading-tight text-on-surface-variant">Current Level</span>
-                  <span />
+      {view === "issue" && keyingDraft && (
+        <DraftKeyIn
+          draft={keyingDraft}
+          roster={roster}
+          schoolName={schoolName}
+          by={by}
+          onBack={() => setKeyingId(null)}
+          onSubmitted={() => { setKeyingId(null); setView("apps"); }}
+        />
+      )}
+
+      {view === "issue" && !keyingDraft && (
+      <>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <Card.Header>
+              <h2 className="flex items-center gap-2 text-[15px] font-semibold text-on-surface">
+                <MagnifyingGlass size={18} aria-hidden="true" /> Find an existing draft
+              </h2>
+            </Card.Header>
+            <Card.Body>
+              <div className="space-y-3">
+                <div className="relative">
+                  <MagnifyingGlass size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                  <input
+                    id="draft-search"
+                    type="search"
+                    autoComplete="off"
+                    aria-label="Search drafts"
+                    className={`${inputClass} pl-9`}
+                    placeholder="Search drafts..."
+                    value={draftQuery}
+                    onChange={(e) => setDraftQuery(e.target.value)}
+                  />
                 </div>
-                {childrenRows.map((row, i) => {
-                  const match = matchOf(row);
-                  return (
-                    <div key={i} className="space-y-1.5 rounded-control border border-line px-3 py-2.5">
-                      <div className="grid gap-2 sm:grid-cols-[auto_1fr_1.3fr_1.3fr_0.6fr_auto]">
-                        <span className="flex min-h-11 items-center text-[13px] text-on-surface-variant" aria-hidden="true">{i + 1}</span>
-                        <input className={inputClass} aria-label={`Child ${i + 1} BC/NRIC no.`} placeholder="BC/NRIC no." value={row.nric} onChange={(e) => setChildRow(i, { nric: e.target.value })} />
-                        <input className={inputClass} aria-label={`Child ${i + 1} name`} placeholder="Name" value={row.name} onChange={(e) => setChildRow(i, { name: e.target.value })} />
-                        <input
-                          className={inputClass}
-                          aria-label={`Child ${i + 1} name of current school`}
-                          placeholder="Name of current school"
-                          value={row.school}
-                          onChange={(e) => setChildRow(i, { school: e.target.value })}
-                        />
-                        <input className={inputClass} aria-label={`Child ${i + 1} current level`} placeholder="Level" value={row.level} onChange={(e) => setChildRow(i, { level: e.target.value })} />
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          aria-label={`Remove child ${i + 1}`}
-                          className="self-center"
-                          onClick={() => setChildrenRows((rs) => rs.filter((_, j) => j !== i))}
-                          disabled={childrenRows.length === 1}
-                        >
-                          <X size={16} weight="bold" aria-hidden="true" />
-                        </Button>
-                      </div>
-                      <div className="flex min-h-6 flex-wrap items-center gap-2 text-[13px] text-on-surface-variant">
-                        {match ? (
-                          <>
-                            {match.mineSchool
-                              ? <Badge tone="primary">Your school</Badge>
-                              : <Badge tone="neutral">Other school</Badge>}
-                            {match.blocked && <Badge tone="neutral">Already has an application</Badge>}
-                          </>
-                        ) : rowFilled(row) ? (
-                          <span className="font-medium text-alert">No child matches this row.</span>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })}
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Button size="sm" variant="secondary" onClick={() => setChildrenRows((rs) => [...rs, blankChild()])}>
-                    <Plus size={16} weight="bold" aria-hidden="true" /> Add child
+                <p className="text-[13px] text-on-surface-variant">
+                  Enter the draft code, the parent NRIC or a child&apos;s name — the register below narrows as you type.
+                </p>
+              </div>
+            </Card.Body>
+          </Card>
+
+          <Card>
+            <Card.Header>
+              <h2 className="flex items-center gap-2 text-[15px] font-semibold text-on-surface">
+                <FilePlus size={18} aria-hidden="true" /> Issue a new form
+              </h2>
+            </Card.Header>
+            <Card.Body>
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <input
+                    id="issue-nric"
+                    className={inputClass}
+                    aria-label="Parent or guardian NRIC"
+                    placeholder="Enter parent NRIC"
+                    value={issueNric}
+                    onChange={(e) => setIssueNric(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && issueNric.trim() && !issueLooking) findForIssue(); }}
+                  />
+                  <Button size="sm" onClick={findForIssue} disabled={issueLooking || !issueNric.trim()}>
+                    {issueLooking ? "Searching…" : "Find the family"}
                   </Button>
                 </div>
-              </div>
-            </Field>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Contact number" required>
-              <input
-                className={inputClass}
-                value={contact}
-                onChange={(e) => setContact(e.target.value)}
-                placeholder="+65 …"
-              />
-              </Field>
-              <Field label="Email address">
-                <input className={inputClass} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="optional" />
-              </Field>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Home address" required>
-                <input className={inputClass} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Blk / street / postal code" />
-              </Field>
-            </div>
-          </section>
-
-          <section className="space-y-3 border-t border-line pt-4">
-            <SectionTitle n="II" title="Information on other household members" />
-            <label className="flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm">
-              <input
-                type="checkbox"
-                className="mt-0.5 size-4 accent-[#8A2538]"
-                checked={welfareHome}
-                onChange={(e) => {
-                  setWelfareHome(e.target.checked);
-                  if (e.target.checked) { setHomesOnly(false); setAdminIncome(false); }
-                }}
-              />
-              <span>
-                The child is a resident of an approved welfare home (letter from the welfare home attached)
-                {welfareHome && <span className="block text-[13px] text-on-surface-variant">Section II is not required for this child.</span>}
-              </span>
-            </label>
-            {welfareHome && (
-              <div className="space-y-2 rounded-control border border-line p-3">
-                <Field label="Letter from the welfare home" required>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-2 rounded-control border border-line bg-surface-container-lowest px-3 text-[13px] font-semibold text-primary motion-safe:transition-colors hover:bg-surface-fixed">
-                      <FilePdf size={16} weight="bold" aria-hidden="true" />
-                      Attach the letter (PDF)
-                      <input
-                        type="file"
-                        accept="application/pdf"
-                        className="sr-only"
-                        aria-label="Attach the welfare home letter PDF"
-                        onChange={onLetterFile}
-                      />
-                    </label>
-                    {letter && (
-                      <span className="inline-flex items-center gap-2 text-[13px] text-on-surface-variant">
-                        <button
-                          type="button"
-                          onClick={() => setLetterView(true)}
-                          className="inline-flex items-center gap-1.5 rounded-control px-1.5 py-0.5 font-medium text-primary hover:bg-primary-fixed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                        >
-                          <FilePdf size={14} weight="bold" aria-hidden="true" /> {letter.file}
-                        </button>
-                        {letterReading && "· reading the letter…"}
-                        <button
-                          type="button"
-                          aria-label="Remove the letter"
-                          className="rounded-control p-1 hover:bg-surface-container-low"
-                          onClick={() => { setLetter(null); setLetterReading(false); setLetterView(false); }}
-                        >
-                          <X size={14} weight="bold" aria-hidden="true" />
-                        </button>
-                      </span>
-                    )}
+                <p className="text-[13px] text-on-surface-variant">
+                  Creates a pre-filled draft for the family — print it from its row in the register below and hand it to the parent.
+                </p>
+                {issueFound && (
+                  <div className="space-y-2 rounded-control border border-line p-3">
+                    <p className="text-sm font-semibold text-on-surface">
+                      {issueFound.name} <span className="font-normal text-on-surface-variant">({issueFound.relationship})</span>
+                    </p>
+                    <p className="text-[13px] text-on-surface-variant">
+                      {issueFound.contact} · {issueFound.address}{issueFound.email ? ` · ${issueFound.email}` : ""}
+                    </p>
+                    <ul className="space-y-1.5">
+                      {issueRows.map((r) => (
+                        <li key={r.student.id} className="flex flex-wrap items-center justify-between gap-2 text-[13px]">
+                          <span className="font-medium text-on-surface">
+                            {r.student.name} <span className="font-normal text-on-surface-variant">({r.student.level} · {r.school})</span>
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            {r.mineSchool ? <Badge tone="primary">Your school</Badge> : <Badge tone="neutral">Other school</Badge>}
+                            {r.blocked && <Badge tone="neutral">Already has an application</Badge>}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {(() => {
+                      const existing = fas.drafts.find((d) => d.status === "draft" && normNric(d.guardianNric) === normNric(issueFound.nric));
+                      return existing ? (
+                        <p className="text-[13px] text-on-surface-variant">
+                          A form is already out with this family — {existing.id}, issued{" "}
+                          {new Date(existing.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} and still awaiting the signed copy.
+                          Print it again from the register below, or issue a fresh copy if the first was lost.
+                        </p>
+                      ) : null;
+                    })()}
+                    <div className="flex justify-end">
+                      <Button onClick={issueForm} disabled={!issueRows.length}>
+                        <Plus size={16} weight="bold" aria-hidden="true" /> Create the draft form
+                      </Button>
+                    </div>
                   </div>
-                </Field>
-                {letter?.ocr && (
-                  <p className="text-[13px] text-on-surface-variant" role="status">
-                    OCR read: <span className="font-semibold text-on-surface">{letter.ocr.home}</span> · dated {letter.ocr.dated} ·
-                    for {pickedStudents[0]?.name ?? "the child on the form"}
+                )}
+                {issueMiss && (
+                  <p className="text-[13px] font-medium text-alert" role="alert">
+                    No family in the registry matches this NRIC — check the NRIC with the parent. Forms are issued only to families
+                    on the shared registry.
+                  </p>
+                )}
+                {printMiss && (
+                  <p className="text-[13px] font-medium text-alert" role="alert">
+                    The print window was blocked by the browser — the draft is still recorded; allow pop-ups and press
+                    &ldquo;Print&rdquo; on its row.
                   </p>
                 )}
               </div>
-            )}
-            {!welfareHome && (
-              <>
-                <label className="flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 size-4 accent-[#8A2538]"
-                    checked={homesOnly}
-                    onChange={(e) => {
-                      setHomesOnly(e.target.checked);
-                      if (e.target.checked) setAdminIncome(false);
-                    }}
-                  />
-                  <span>
-                    The household has only employment and/or trade income — no other administrative income
-                    {homesOnly && (
-                      <span className="block text-[13px] text-on-surface-variant">
-                        Section II is not required — MOE retrieves the gross household income and per-capita income from HOMES (IRAS + CPF records).
-                      </span>
-                    )}
-                  </span>
-                </label>
-                <label className="flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 size-4 accent-[#8A2538]"
-                    checked={adminIncome}
-                    onChange={(e) => {
-                      setAdminIncome(e.target.checked);
-                      if (e.target.checked) setHomesOnly(false);
-                    }}
-                  />
-                  <span>
-                    The household also has other administrative income (rental, dividends, taxable investment income)
-                  </span>
-                </label>
-                {adminIncome && (
-                  <div className="space-y-2 rounded-control border border-line p-3">
-                    <div className="hidden gap-2 sm:grid sm:grid-cols-[auto_1.1fr_0.9fr_1.2fr_0.5fr_1.3fr_1fr_1fr_auto]">
-                      <span className="w-4 text-[12px] font-semibold leading-tight text-on-surface-variant">S/ No.</span>
-                      <span className="text-[12px] font-semibold leading-tight text-on-surface-variant">Name</span>
-                      <span className="text-[12px] font-semibold leading-tight text-on-surface-variant">BC/NRIC No.</span>
-                      <span className="text-[12px] font-semibold leading-tight text-on-surface-variant">Relationship &amp; Marital Status</span>
-                      <span className="text-[12px] font-semibold leading-tight text-on-surface-variant">Age</span>
-                      <span className="text-[12px] font-semibold leading-tight text-on-surface-variant">Occupation Status (e.g. Student/ Self-employed/ Employed/ Unemployed)</span>
-                      <span className="text-[12px] font-semibold leading-tight text-on-surface-variant">Gross Monthly Income (from employment and/or trade)</span>
-                      <span className="text-[12px] font-semibold leading-tight text-on-surface-variant">Other Administrative Income (e.g. rental income, dividends and taxable investment income)</span>
-                      <span />
-                    </div>
-                    {members.map((m, i) => (
-                      <div key={i} className="grid gap-2 sm:grid-cols-[auto_1.1fr_0.9fr_1.2fr_0.5fr_1.3fr_1fr_1fr_auto]">
-                        <span className="flex min-h-11 items-center text-[13px] text-on-surface-variant" aria-hidden="true">{i + 1}</span>
-                        <input className={inputClass} aria-label={`Member ${i + 1} name`} placeholder="Name" value={m.name} onChange={(e) => setMember(i, { name: e.target.value })} />
-                        <input className={inputClass} aria-label={`Member ${i + 1} NRIC no.`} placeholder="NRIC no." value={m.nric} onChange={(e) => setMember(i, { nric: e.target.value })} />
-                        <input className={inputClass} aria-label={`Member ${i + 1} relationship`} placeholder="Relationship" value={m.relationship} onChange={(e) => setMember(i, { relationship: e.target.value })} />
-                        <input className={inputClass} aria-label={`Member ${i + 1} age`} placeholder="Age" inputMode="numeric" value={m.age} onChange={(e) => setMember(i, { age: e.target.value })} />
-                        <select className={inputClass} aria-label={`Member ${i + 1} occupation status`} value={m.occupation} onChange={(e) => setMember(i, { occupation: e.target.value })}>
-                          {OCCUPATIONS.map((o) => <option key={o}>{o}</option>)}
-                        </select>
-                        <input className={inputClass} aria-label={`Member ${i + 1} gross monthly income`} placeholder="Gross / mth" inputMode="decimal" value={m.gross} onChange={(e) => setMember(i, { gross: e.target.value })} />
-                        <input
-                          className={inputClass}
-                          aria-label={`Member ${i + 1} other administrative income`}
-                          placeholder="Other income"
-                          inputMode="decimal"
-                          value={m.other}
-                          onChange={(e) => setMember(i, { other: e.target.value })}
-                        />
-                        <Button size="sm" variant="secondary" aria-label={`Remove member ${i + 1}`} onClick={() => setMembers((ms) => ms.filter((_, j) => j !== i))} disabled={members.length === 1}>
-                          <X size={16} weight="bold" aria-hidden="true" />
-                        </Button>
-                      </div>
-                    ))}
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <Button size="sm" variant="secondary" onClick={() => setMembers((ms) => [...ms, blankMember()])}>
-                        <Plus size={16} weight="bold" aria-hidden="true" /> Add member
-                      </Button>
-                      <p className="text-[13px] text-on-surface-variant">
-                        Total gross household income (12-month average): <span className="font-semibold text-on-surface">S${totalGhi.toLocaleString("en-SG")}</span> / month
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </section>
-
-          <section className="space-y-2 border-t border-line pt-4">
-            <SectionTitle n="III" title="Benefits under MOE FAS" />
-            <p className="text-sm text-on-surface-variant">
-              Full subsidy of school fees and miscellaneous fees. At the primary and secondary levels: free textbooks and
-              school attire (2 sets of uniforms, 2 sets of PE attire, shoes and socks), and a school meals subsidy. The
-              school will tell the parent when and where to collect.
-            </p>
-          </section>
-
-          <section className="space-y-2 border-t border-line pt-4">
-            <SectionTitle n="IV" title="Mode of transport between home and school" />
-            <div className="space-y-1.5">
-              {TRANSPORT_MODES.map(({ mode, note, primaryOnly }) => {
-                const off = primaryOnly && !schoolBusAllowed;
-                return (
-                  <label key={mode} className={`flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm ${off ? "opacity-50" : "cursor-pointer hover:bg-surface-container-low"}`}>
-                    <input
-                      type="radio"
-                      name="transport"
-                      className="mt-0.5 size-4 accent-[#8A2538]"
-                      disabled={off}
-                      checked={transportMode === mode}
-                      onChange={() => setTransportMode(mode)}
-                    />
-                    <span>
-                      {mode}
-                      <span className="block text-[13px] text-on-surface-variant">{off ? "Primary level only" : note}</span>
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="space-y-2 border-t border-line pt-4">
-            <SectionTitle n="V" title="Subsidised broadband and/or laptop/tablet" />
-            <p className="text-sm text-on-surface-variant">
-              If the family is interested, they can apply at digitalaccess.gov.sg, call 6377 3800, or ask this school
-              for a hard copy of that application form.
-            </p>
-            <div className="space-y-1.5" role="radiogroup" aria-label="Hard copy of the DigitalAccess@Home application form">
-              {([
-                ["yes", "Yes — hand the parent a hard copy of that application form"],
-                ["no", "No — the family will apply on their own"],
-              ] as const).map(([v, label]) => (
-                <label key={v} className="flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm cursor-pointer hover:bg-surface-container-low">
-                  <input
-                    type="radio"
-                    name="imda-copy"
-                    className="mt-0.5 size-4 accent-[#8A2538]"
-                    checked={imdaCopy === v}
-                    onChange={() => setImdaCopy(v)}
-                  />
-                  <span>{label}</span>
-                </label>
-              ))}
-            </div>
-          </section>
-
-          <section className="space-y-3 border-t border-line pt-4">
-            <SectionTitle n="VI" title="Declaration and agreement by the applicant" />
-            <ul className="list-disc space-y-1 pl-5 text-sm text-on-surface-variant">
-              <li>No child on this form receives financial assistance from more than one MOE-funded school or institution.</li>
-              <li>The applicant authorises monthly withdrawals from the child&apos;s Edusave account for school fees and approved expenses while on MOE FAS.</li>
-              <li>MOE and the schools may verify the information, reassess the household, and share the data needed to administer the scheme.</li>
-              <li>The information given is true — false information is an offence under Section 182 of the Penal Code 1871.</li>
-            </ul>
-            {/* The paper form collects the parent/guardian name only here — at the declaration the applicant signs. */}
-            <Field label="Parent / guardian name (as signed on the declaration)" required>
-              <input className={inputClass} value={applicant} onChange={(e) => setApplicant(e.target.value)} placeholder="Name as written on the form" />
-            </Field>
-            <label className="flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm">
-              <input type="checkbox" className="mt-0.5 size-4 accent-[#8A2538]" checked={declared} onChange={(e) => setDeclared(e.target.checked)} />
-              <span>
-                The declaration is signed and dated on the paper form by <span className="font-semibold">{applicant.trim() || "the applicant"}</span>
-              </span>
-            </label>
-            <Field label="Anything else on the form (optional)">
-              <textarea rows={2} className={`${inputClass} py-2`} value={note} onChange={(e) => setNote(e.target.value)} />
-            </Field>
-          </section>
-
-          <section className="space-y-3 border-t border-line pt-4">
-            <SectionTitle n="VII" title="Where this form goes" />
-            <div role="radiogroup" aria-label="Where this form goes" className="space-y-1.5">
-              <label className="flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm cursor-pointer hover:bg-surface-container-low">
-                <input type="radio" name="submit-to" className="mt-0.5 size-4 accent-[#8A2538]" checked={submitMode === "moe"} onChange={() => setSubmitMode("moe")} />
-                <span>Submit to MOE for assessment — the first application (MOEFAS is assessed first)</span>
-              </label>
-              <label className="flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm cursor-pointer hover:bg-surface-container-low">
-                <input type="radio" name="submit-to" className="mt-0.5 size-4 accent-[#8A2538]" checked={submitMode === "sbfas"} onChange={() => setSubmitMode("sbfas")} />
-                <span>Submit to this school&apos;s SBFAS review queue — a separate request after a rejection</span>
-              </label>
-            </div>
-            {submitMode === "sbfas" && (
-              <>
-                {reLast && (
-                  <div className="rounded-control border border-line bg-surface-container-low p-3 text-[13px] text-on-surface-variant">
-                    <p>
-                      Previous request <span className="font-semibold text-on-surface">{reLast.id}</span> · rejected
-                      {reLast.decidedAt ? ` on ${new Date(reLast.decidedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}
-                      {" "}· income band {reLast.incomeBand} · attempt {attemptOf(reLast)}
-                    </p>
-                    {reLast.justification && <p className="mt-1">&ldquo;{reLast.justification}&rdquo; — the school&apos;s reason at the time.</p>}
-                    <p className="mt-1">The new request will be attempt {attemptOf(reLast) + 1} and keeps the same income band.</p>
-                  </div>
-                )}
-                <Field label="What changed since the rejected request" required>
-                  <textarea rows={2} className={`${inputClass} py-2`} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. a parent stopped working in August" />
-                </Field>
-              </>
-            )}
-          </section>
-
-          {error && <p className="text-[13px] font-medium text-alert" role="alert">{error}</p>}
-          <div className="flex justify-end">
-            <Button onClick={startReview}>Review the form</Button>
-          </div>
+            </Card.Body>
+          </Card>
         </div>
-        )}
-      </Card>
+
+        <Card title="Draft register — forms issued and awaiting return">
+          {fas.drafts.length ? (
+            <div className="space-y-3">
+              {shownDrafts.length ? (
+                <ul className="space-y-3">
+                  {shownDrafts.map((d) => (
+                    <li
+                      key={d.id}
+                      className={`rounded-control border border-line px-4 py-3${d.status === "draft" ? " relative cursor-pointer transition-colors hover:border-outline hover:bg-surface-container-low" : ""}`}
+                    >
+                      {/* Clicking an open draft opens its returned-copy key-in — the row IS the entry point
+                          (the old New form tab is gone). Buttons stay above the overlay (relative). */}
+                      {d.status === "draft" && (
+                        <button
+                          className="absolute inset-0 rounded-control"
+                          aria-label={`Key in the returned copy of ${d.id} — ${d.applicant}`}
+                          onClick={() => setKeyingId(d.id)}
+                        />
+                      )}
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold">{d.id} · {d.applicant}</p>
+                          <p className="text-[13px] text-on-surface-variant">
+                            Issued {new Date(d.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} by {d.issuedBy}
+                            {" "}· {d.children.length} {d.children.length > 1 ? "children" : "child"}
+                            {d.status === "returned" && d.returnedAt
+                              ? ` · returned ${new Date(d.returnedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
+                              : ""}
+                          </p>
+                        </div>
+                        <span className="relative flex flex-wrap items-center gap-2">
+                          {d.status === "draft"
+                            ? <Badge tone="warning">Draft — awaiting return</Badge>
+                            : <Badge tone="success">Returned — keyed in as {d.returnedAppId}</Badge>}
+                          {/* The staff prints the form from its row — the draft is recorded before anything
+                              is printed, and this row is where it is printed from, again if a copy is lost. */}
+                          {d.status === "draft" ? (
+                            <Button size="sm" onClick={() => { if (!openDraftPrint(d, schoolName)) setPrintMiss(true); }}>
+                              <Printer size={16} weight="bold" aria-hidden="true" /> Print
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="secondary" onClick={() => { if (!openDraftPrint(d, schoolName)) setPrintMiss(true); }}>
+                              <Printer size={16} weight="bold" aria-hidden="true" /> Print again
+                            </Button>
+                          )}
+                          {/* X removes an unprinted/unwanted draft row. A returned draft is the audit
+                              trail of a live application — it cannot be removed. */}
+                          {d.status === "draft" && (
+                            <Button size="sm" variant="secondary" aria-label={`Remove draft ${d.id}`} onClick={() => actions.voidDraft(d.id)}>
+                              <X size={16} weight="bold" aria-hidden="true" />
+                            </Button>
+                          )}
+                        </span>
+                      </div>
+                      <ul className="mt-2 space-y-1.5">
+                        {d.children.map((c) => (
+                          <li key={c.studentId} className="text-[13px]">
+                            <span className="font-medium text-on-surface">{c.name}</span>
+                            <span className="text-on-surface-variant"> ({c.level} · {c.school})</span>
+                          </li>
+                        ))}
+                      </ul>
+                      {d.status === "draft" ? (
+                        <p className="mt-2 text-[12px] text-on-surface-variant">
+                          Print the form and hand it to the parent — when the signed copy comes back, click this row to key it in against the draft.
+                        </p>
+                      ) : (
+                        <p className="mt-2 text-[12px] text-on-surface-variant">
+                          The signed copy came back and was keyed in as {d.returnedAppId} — see the Applications tab for the outcome.
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[13px] text-on-surface-variant">No draft matches this search — try the draft code, the parent&apos;s name or a child&apos;s name.</p>
+              )}
+            </div>
+          ) : (
+            <EmptyState
+              title="No forms issued yet"
+              hint="Look up a family above and create the form — every form is recorded here as a draft before it is printed, so the school always knows which children hold one."
+            />
+          )}
+        </Card>
+      </>
       )}
 
       {view === "apps" && (
@@ -1103,79 +1106,11 @@ export default function HardcopyEntry() {
               {paperApps.map((fa) => <PaperRow key={fa.id} fa={fa} apps={fas.apps} schoolOf={schoolOfLevelName} onOpen={() => navigate(`/admin/fas/hardcopy/${fa.id}`)} />)}
             </ul>
           ) : (
-            <EmptyState title="No paper applications yet" hint="Scan or enter a paper MOE FAS form on the New form tab to see it here with the child's outcome." />
+            <EmptyState title="No paper applications yet" hint="Issue a form on the Issue form tab and key in the returned copy from its draft row — the application lands here with the outcome." />
           )}
         </Card>
       </>
       )}
-
-      <Modal
-        open={formView && !!formFile}
-        onClose={() => setFormView(false)}
-        title={formFile ?? "Scanned form"}
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => { setFormView(false); reset(); }}>Remove & upload another</Button>
-            <Button onClick={() => setFormView(false)}>Close</Button>
-          </>
-        }
-      >
-        {formFile && (
-          <>
-            <p className="mb-3 text-[13px] text-on-surface-variant">
-              The OCR pre-filled the entry fields from this scan — applicant: <span className="font-semibold text-on-surface">{applicant.trim() || "—"}</span>. Removing the file clears the form for a fresh upload.
-            </p>
-            <img src={formDocImage(formFile, applicant)} alt="Sample scanned MOE FAS form" className="max-h-[60vh] w-full rounded-control border border-line object-contain" />
-          </>
-        )}
-      </Modal>
-
-      <Modal
-        open={letterView && !!letter}
-        onClose={() => setLetterView(false)}
-        title={letter?.file ?? "Welfare home letter"}
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => { setLetter(null); setLetterReading(false); setLetterView(false); }}>
-              Remove & attach another
-            </Button>
-            <Button onClick={() => setLetterView(false)}>Close</Button>
-          </>
-        }
-      >
-        {letter && (
-          <>
-            <p className="mb-3 text-[13px] text-on-surface-variant" role="status">
-              {letter.ocr
-                ? <>OCR read <span className="font-semibold text-on-surface">{letter.ocr.home}</span> · dated {letter.ocr.dated} · for {pickedStudents[0]?.name ?? "the child on the form"}</>
-                : "Not read yet."}
-            </p>
-            <img src={letterDocImage(letter)} alt="Sample welfare home letter scan" className="max-h-[60vh] w-full rounded-control border border-line object-contain" />
-          </>
-        )}
-      </Modal>
-
-      <Modal
-        open={confirming}
-        onClose={() => setConfirming(false)}
-        title="Submit this application?"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setConfirming(false)}>Cancel</Button>
-            <Button onClick={() => { setConfirming(false); submit(); }}>Submit</Button>
-          </>
-        }
-      >
-        <p className="text-sm text-on-surface">
-          One application for {childrenRows.filter(rowFilled).map((r) => r.name.trim() || "—").join(", ")} — it goes{" "}
-          {submitMode === "moe"
-            ? "to MOE for assessment: MOEFAS is decided instantly, and children outside the bands are referred to their school's SBFAS review queue."
-            : "straight to this school's SBFAS review queue as a separate request after a rejection."}
-        </p>
-        <p className="mt-2 text-[13px] text-on-surface-variant">
-          The submitted form becomes read-only, and the outcome is sent to the parent by SMS/email automatically once decided.
-        </p>
-      </Modal>
     </div>
   );
 }

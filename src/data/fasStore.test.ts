@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { MOEFAS_TIER_AMOUNT, SBFAS, SBFAS_BY_TIER, SBFAS_TIER_AMOUNT } from "./budgets";
+import type { FamilyDraft } from "./familyApplications";
 import type { Band } from "./familyFas";
 import { FAMILY_STUDENT_NAMES } from "./parent";
 import { STUDENTS } from "./students";
-import { fasReducer, initialFasState, selectBudgets, selectChildFas, selectMoefas, selectRecentGrants, selectSbfas } from "./fasStore";
+import { fasReducer, initialFasState, latestAppFor, selectBudgets, selectChildFas, selectMoefas, selectRecentGrants, selectSbfas } from "./fasStore";
+import { yearOf } from "./sbfasApplications";
 
 const first = (s = initialFasState()) => s.apps[0]; // SBFAS0001, recommended Tier 1
 const approveAt = (s: ReturnType<typeof initialFasState>, id: string, at: string) =>
@@ -279,70 +281,215 @@ describe("a hardcopy application entered at the school (Requirement 5)", () => {
   });
 });
 
-describe("a new SBFAS request after a rejection", () => {
+describe("a parent re-request after a rejection (one application, round log)", () => {
   const [ethan] = FAMILY_STUDENT_NAMES.map((n) => STUDENTS.find((s) => s.name === n)!);
   const at = "2026-10-20T09:00:00.000Z";
   const band: Band = { id: "b3", label: "$751 - $1,000 per person", tier: "SBFAS" };
+  const appIdOf = (s: ReturnType<typeof initialFasState>) => s.apps.find((a) => a.studentId === ethan.id)!.id;
   // Start from an online submission, then have the school reject it.
   const rejected = () => {
     const s0 = fasReducer(initialFasState(), { type: "submitFamily", studentIds: [ethan.id], band, at });
-    const id = s0.apps.find((a) => a.studentId === ethan.id)!.id;
-    return fasReducer(s0, { type: "decide", id, action: "reject", draft: { justification: "Income above range", tier: "Tier 1" }, at });
+    return fasReducer(s0, { type: "decide", id: appIdOf(s0), action: "reject", draft: { justification: "Income above range", tier: "Tier 1" }, at });
   };
-  const reapply = (s: ReturnType<typeof initialFasState>, reason = "Parent stopped working", by?: string) =>
-    fasReducer(s, { type: "submitSbfasReapply", studentId: ethan.id, reason, by, at });
+  const requeue = (s: ReturnType<typeof initialFasState>, reason = "Parent stopped working", by = "Alicia Tan") =>
+    fasReducer(s, { type: "requeueSbfas", studentId: ethan.id, reason, by, at });
 
-  it("creates attempt 2 in the queue, superseding the rejected application and carrying the reason", () => {
-    const s = reapply(rejected(), "Parent stopped working", "Alicia Tan");
+  it("a re-request requeues the SAME application — round 2, Pending again, reason logged, no second record", () => {
+    const s = requeue(rejected());
+    const mine = s.apps.filter((a) => a.studentId === ethan.id);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]).toMatchObject({ status: "Pending", attemptNo: 2 });
+    expect(mine[0].rounds).toHaveLength(2);
+    expect(mine[0].rounds![0].decision).toMatchObject({ status: "Rejected", justification: "Income above range" });
+    expect(mine[0].rounds![1]).toMatchObject({ note: "Parent stopped working", by: "Alicia Tan" });
+  });
+
+  it("is refused while the application is pending, without a reason, and after a grant", () => {
+    const pending = fasReducer(initialFasState(), { type: "submitFamily", studentIds: [ethan.id], band, at });
+    expect(requeue(pending)).toEqual(pending);
+    const s = rejected();
+    expect(requeue(s, "   ")).toEqual(s);
+    const granted0 = fasReducer(initialFasState(), { type: "submitFamily", studentIds: [ethan.id], band, at });
+    const granted = fasReducer(granted0, { type: "decide", id: appIdOf(granted0), action: "approve", draft: { justification: "", tier: "Tier 3" }, at });
+    expect(requeue(granted)).toEqual(granted);
+  });
+
+  it("after round 2 is rejected, round 3 follows the same rule — the record just counts up", () => {
+    let s = requeue(rejected());
+    s = fasReducer(s, { type: "decide", id: appIdOf(s), action: "reject", draft: { justification: "Still above range", tier: "Tier 1" }, at });
+    s = requeue(s, "Rent went up");
+    const a = s.apps.find((x) => x.studentId === ethan.id)!;
+    expect(s.apps.filter((x) => x.studentId === ethan.id)).toHaveLength(1);
+    expect(a).toMatchObject({ status: "Pending", attemptNo: 3 });
+    expect(a.rounds).toHaveLength(3);
+    expect(a.rounds![1].decision).toMatchObject({ status: "Rejected", justification: "Still above range" });
+  });
+
+  it("the child's outcome reads the live record, so a re-request puts them back to awaiting", () => {
+    expect(selectChildFas(rejected(), ethan.id)).toMatchObject({ status: "Not granted" });
+    expect(selectChildFas(requeue(rejected()), ethan.id)).toEqual({ scheme: "SBFAS", status: "Awaiting school decision" });
+  });
+
+  it("deciding logs the decision on the round that is open", () => {
+    const s0 = fasReducer(initialFasState(), { type: "submitFamily", studentIds: [ethan.id], band, at });
+    const s = fasReducer(s0, { type: "decide", id: appIdOf(s0), action: "approve", draft: { justification: "", tier: "Tier 3" }, at });
+    const a = s.apps.find((x) => x.studentId === ethan.id)!;
+    expect(a.rounds).toHaveLength(1);
+    expect(a.rounds![0].decision).toMatchObject({ status: "Approved", tier: "Tier 3", at });
+    expect(a.decidedAt).toBe(at);
+  });
+});
+
+describe("applications log per year (FAS runs per year)", () => {
+  const [ethan] = FAMILY_STUDENT_NAMES.map((n) => STUDENTS.find((s) => s.name === n)!);
+  const y26 = "2026-10-20T09:00:00.000Z";
+  const y27 = "2027-03-02T09:00:00.000Z";
+  const band: Band = { id: "b3", label: "$751 - $1,000 per person", tier: "SBFAS" };
+  const submitAt = (s: ReturnType<typeof initialFasState>, at: string) =>
+    fasReducer(s, { type: "submitFamily", studentIds: [ethan.id], band, at });
+  const idIn = (s: ReturnType<typeof initialFasState>, yr: number) =>
+    s.apps.find((a) => a.studentId === ethan.id && yearOf(a) === yr)!.id;
+
+  it("the same child files a NEW application next year — last year's record does not block it", () => {
+    let s = submitAt(initialFasState(), y26);
+    s = fasReducer(s, { type: "decide", id: idIn(s, 2026), action: "approve", draft: { justification: "", tier: "Tier 3" }, at: y26 });
+    s = submitAt(s, y27);
     const mine = s.apps.filter((a) => a.studentId === ethan.id);
     expect(mine).toHaveLength(2);
-    expect(mine[1]).toMatchObject({ attemptNo: 2, supersedesId: mine[0].id, reapplyReason: "Parent stopped working", source: "Resubmission", status: "Pending", enteredBy: "Alicia Tan" });
-    expect(mine[1].incomeBand).toBe(mine[0].incomeBand);
-    expect(s.familyApps).toHaveLength(0); // the portal re-apply creates no hardcopy record
+    expect(mine.map((a) => yearOf(a)).sort()).toEqual([2026, 2027]);
+    // the live outcome reads the NEWEST year's application — this year is awaiting again
+    expect(selectChildFas(s, ethan.id)).toMatchObject({ scheme: "SBFAS", status: "Awaiting school decision" });
+    expect(latestAppFor(s.apps, ethan.id)!.year).toBe(2027);
   });
 
-  it("records the hardcopy flow-2 form in the paper history", () => {
-    const s = fasReducer(rejected(), {
-      type: "submitSbfasReapply", studentId: ethan.id, reason: "Parent stopped working", by: "Alicia Tan", at,
-      school: "Riverbank Primary School", applicant: "Benson Chua", contact: "+65 8112 9743", entryMode: "ocr",
+  it("within one year the duplicate guard still holds (AC-031, per year)", () => {
+    const s = submitAt(initialFasState(), y26);
+    const again = fasReducer(s, { type: "submitFamily", studentIds: [ethan.id], band, at: "2026-11-01T09:00:00.000Z" });
+    expect(again.apps.filter((a) => a.studentId === ethan.id)).toHaveLength(1);
+  });
+
+  it("a decision change never crosses years — only this year's rejection requeues", () => {
+    let s = submitAt(initialFasState(), y26);
+    s = fasReducer(s, { type: "decide", id: idIn(s, 2026), action: "reject", draft: { justification: "Income above range", tier: "Tier 1" }, at: y26 });
+    s = submitAt(s, y27);
+    // 2027 has no rejection yet (its application is pending): a re-request is refused
+    expect(fasReducer(s, { type: "requeueSbfas", studentId: ethan.id, reason: "x", by: "Alicia Tan", at: y27 })).toBe(s);
+    // decide 2027, reject it, requeue: only the 2027 record requeues — 2026 stays rejected as history
+    s = fasReducer(s, { type: "decide", id: idIn(s, 2027), action: "reject", draft: { justification: "Still above range", tier: "Tier 1" }, at: y27 });
+    s = fasReducer(s, { type: "requeueSbfas", studentId: ethan.id, reason: "Parent stopped working", by: "Alicia Tan", at: y27 });
+    expect(s.apps.find((a) => a.id === idIn(s, 2026))).toMatchObject({ status: "Rejected" });
+    expect(s.apps.find((a) => a.id === idIn(s, 2027))).toMatchObject({ status: "Pending", attemptNo: 2 });
+  });
+});
+
+describe("issue-form drafts (Sprint 3: print first, key in the returned copy)", () => {
+  const [ethan] = FAMILY_STUDENT_NAMES.map((n) => STUDENTS.find((s) => s.name === n)!);
+  const at = "2026-10-26T09:00:00.000Z";
+  const draft = (id: string): FamilyDraft => ({
+    id, status: "draft", guardianNric: "S1234567D", applicant: "Benson Chua", contact: "+65 8112 9743",
+    address: "Blk 315 Ang Mo Kio Ave 3, #07-221, Singapore 560315",
+    children: [{ studentId: "S20260009", name: "Ethan Lim Jun Hao", nric: "T1504644E", school: "Riverbank Primary School", level: "P5" }],
+    issuedAt: "2026-10-26", issuedBy: "Marcus Ong",
+  });
+  const band: Band = { id: "b3", label: "$1,001 - $1,500 per person", tier: "SBFAS" };
+
+  it("issuing a form records it as a draft the returned copy is checked against", () => {
+    const s = fasReducer(initialFasState(), { type: "issueDraft", draft: draft("DRF-0001") });
+    expect(s.drafts).toHaveLength(1);
+    expect(s.drafts[0]).toMatchObject({ id: "DRF-0001", status: "draft", applicant: "Benson Chua" });
+  });
+
+  it("the same draft id is not recorded twice, but a second family gets its own row", () => {
+    let s = initialFasState();
+    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
+    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
+    expect(s.drafts).toHaveLength(1);
+    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0002") });
+    expect(s.drafts).toHaveLength(2);
+  });
+
+  it("voiding removes the draft and touches nothing else", () => {
+    let s = fasReducer(initialFasState(), { type: "issueDraft", draft: draft("DRF-0001") });
+    s = fasReducer(s, { type: "voidDraft", id: "DRF-0001" });
+    expect(s.drafts).toHaveLength(0);
+    expect(s.apps).toBe(initialFasState().apps);
+  });
+
+  it("keying in the returned copy flips its draft to returned and links the application it became", () => {
+    let s = initialFasState();
+    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
+    // The NRIC is keyed differently cased on the way in — the match is tolerant, like the lookup.
+    s = fasReducer(s, {
+      type: "submitHardcopy", studentIds: [ethan.id], band, school: "Riverbank Primary School",
+      applicant: "Benson Chua", contact: "+65 8112 9743", note: "", by: "Alicia Tan", entryMode: "manual",
+      at, guardianNric: "s1234567d",
     });
-    const request = s.apps.filter((a) => a.studentId === ethan.id)[1];
-    expect(s.familyApps).toHaveLength(1);
-    expect(s.familyApps[0]).toMatchObject({
-      channel: "Hardcopy", school: "Riverbank Primary School", applicant: "Benson Chua",
-      bandLabel: "$751 - $1,000 per person", note: "Parent stopped working",
-      enteredBy: "Alicia Tan", entryMode: "ocr",
-      children: [{ student: ethan.name, outcome: "New SBFAS request" }],
+    expect(s.drafts[0]).toMatchObject({ status: "returned", returnedAppId: s.familyApps[0].id, returnedAt: "2026-10-26" });
+  });
+
+  it("a submission whose family has no draft on file leaves the register untouched", () => {
+    let s = initialFasState();
+    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
+    const before = s.drafts;
+    s = fasReducer(s, {
+      type: "submitHardcopy", studentIds: [ethan.id], band, school: "Riverbank Primary School",
+      applicant: "Someone Else", contact: "+65 9000 0000", note: "", by: "Alicia Tan", entryMode: "manual", at,
     });
-    expect(request.familyAppId).toBe(s.familyApps[0].id);
+    expect(s.drafts).toBe(before);
   });
 
-  it("is refused while the previous application is still pending", () => {
-    const pending = fasReducer(initialFasState(), { type: "submitFamily", studentIds: [ethan.id], band, at });
-    expect(reapply(pending)).toEqual(pending);
+  it("a family's second issue closes only the latest open draft — the lost first copy stays on the register", () => {
+    let s = initialFasState();
+    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
+    s = fasReducer(s, { type: "issueDraft", draft: { ...draft("DRF-0002"), issuedAt: "2026-10-27" } });
+    s = fasReducer(s, {
+      type: "submitHardcopy", studentIds: [ethan.id], band, school: "Riverbank Primary School",
+      applicant: "Benson Chua", contact: "+65 8112 9743", note: "", by: "Alicia Tan", entryMode: "manual",
+      at: "2026-10-28T09:00:00.000Z", guardianNric: "S1234567D",
+    });
+    expect(s.drafts.find((d) => d.id === "DRF-0002")!.status).toBe("returned");
+    expect(s.drafts.find((d) => d.id === "DRF-0001")!.status).toBe("draft");
   });
 
-  it("is refused without a reason, and after a grant", () => {
-    const s = rejected();
-    expect(reapply(s, "   ")).toEqual(s);
-    const granted = fasReducer(initialFasState(), { type: "submitFamily", studentIds: [ethan.id], band, at });
-    const id = granted.apps.find((a) => a.studentId === ethan.id)!.id;
-    const ok = fasReducer(granted, { type: "decide", id, action: "approve", draft: { justification: "", tier: "Tier 3" }, at });
-    expect(reapply(ok)).toEqual(ok);
+  it("keying in by the printed DRF no. closes exactly that draft, not the newer re-issue", () => {
+    let s = initialFasState();
+    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
+    s = fasReducer(s, { type: "issueDraft", draft: { ...draft("DRF-0002"), issuedAt: "2026-10-27" } });
+    // The parent returns the FIRST copy (the second was printed because the first looked lost).
+    s = fasReducer(s, {
+      type: "submitHardcopy", studentIds: [ethan.id], band, school: "Riverbank Primary School",
+      applicant: "Benson Chua", contact: "+65 8112 9743", note: "", by: "Alicia Tan", entryMode: "manual",
+      at: "2026-10-28T09:00:00.000Z", guardianNric: "S1234567D", draftId: "DRF-0001",
+    });
+    expect(s.drafts.find((d) => d.id === "DRF-0001")!.status).toBe("returned");
+    expect(s.drafts.find((d) => d.id === "DRF-0001")!.returnedAppId).toBe(s.familyApps[0].id);
+    expect(s.drafts.find((d) => d.id === "DRF-0002")!.status).toBe("draft");
   });
 
-  it("after attempt 2 is rejected, attempt 3 follows the same rule — nothing is blocked, attempts just count up", () => {
-    let s = reapply(rejected()); // attempt 2 pending
-    const second = s.apps.filter((a) => a.studentId === ethan.id)[1];
-    s = fasReducer(s, { type: "decide", id: second.id, action: "reject", draft: { justification: "Still above range", tier: "Tier 1" }, at });
-    s = reapply(s, "Rent went up");
-    const mine = s.apps.filter((a) => a.studentId === ethan.id);
-    expect(mine).toHaveLength(3);
-    expect(mine[2]).toMatchObject({ attemptNo: 3, supersedesId: second.id });
+  it("documents the parent brought in are kept on the family application, each list under its Section II declaration", () => {
+    let s = initialFasState();
+    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
+    s = fasReducer(s, {
+      type: "submitHardcopy", studentIds: [ethan.id], band, school: "Riverbank Primary School",
+      applicant: "Benson Chua", contact: "+65 8112 9743", note: "", by: "Alicia Tan", entryMode: "manual",
+      at, guardianNric: "S1234567D", draftId: "DRF-0001",
+      extraIncomeDocs: ["Payslip_Sep_2026.pdf"], residentsDocs: ["Tenancy_agreement_Oct2026.pdf"],
+    });
+    expect(s.familyApps[0].extraIncomeDocs).toEqual(["Payslip_Sep_2026.pdf"]);
+    expect(s.familyApps[0].residentsDocs).toEqual(["Tenancy_agreement_Oct2026.pdf"]);
   });
 
-  it("the child's outcome reads the latest attempt, so a new request puts them back to awaiting", () => {
-    expect(selectChildFas(rejected(), ethan.id)).toMatchObject({ status: "Not granted" });
-    expect(selectChildFas(reapply(rejected()), ethan.id)).toEqual({ scheme: "SBFAS", status: "Awaiting school decision" });
+  it("a No on the contact question stores the corrected details and marks them corrected", () => {
+    let s = initialFasState();
+    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
+    s = fasReducer(s, {
+      type: "submitHardcopy", studentIds: [ethan.id], band, school: "Riverbank Primary School",
+      applicant: "Benson Chua", contact: "+65 9000 1234", note: "", by: "Alicia Tan", entryMode: "manual",
+      at, guardianNric: "S1234567D", draftId: "DRF-0001",
+      address: "Blk 808 Jurong West Ave 1, #10-101, Singapore 640808", detailsCorrected: true,
+    });
+    expect(s.familyApps[0].contact).toBe("+65 9000 1234");
+    expect(s.familyApps[0].address).toBe("Blk 808 Jurong West Ave 1, #10-101, Singapore 640808");
+    expect(s.familyApps[0].contactCorrected).toBe(true);
   });
 });

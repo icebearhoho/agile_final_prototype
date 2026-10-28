@@ -19,9 +19,9 @@ import { formatSGD } from "../../../lib/format";
 
 const TONE: Record<string, BadgeTone> = {
   "MOEFAS granted": "success", "MOEFAS Granted": "success", Granted: "success", Matched: "success",
-  "SBFAS Review": "warning", "Mixed Outcomes": "warning", "SBFAS Granted": "success", "SBFAS granted": "success", Rejected: "alert", "Pending SBFAS review": "warning", "MOEFAS not granted": "warning",
+  "SBFAS Review": "warning", "SBFAS review": "warning", "Mixed Outcomes": "warning", "Mixed outcomes": "warning", "SBFAS Granted": "success", "SBFAS granted": "success", Rejected: "alert", "Pending SBFAS review": "warning",
   "New SBFAS request": "warning",
-  "Not granted": "alert", "Already covered": "neutral",
+  "Not granted": "alert", "MOEFAS not granted": "alert", "Already covered": "neutral",
 };
 const Pill = ({ s }: { s: string }) => <Badge tone={TONE[s] ?? "neutral"}>{s}</Badge>;
 

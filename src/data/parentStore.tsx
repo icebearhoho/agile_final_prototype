@@ -71,10 +71,10 @@ export function ParentProvider({ children: kids }: { children: ReactNode }) {
     }
     if (a.type === "reapplyFas") {
       // ASSUMPTION (client pending): after an SBFAS rejection the family may ask again — same right as a
-      // paper family walking the form back to the school. Each rejected child gets a new request; the
-      // store's own guards skip any child that is not actually rejected.
+      // paper family walking the form back to the school. Each rejected child's application is
+      // requeued with the reason logged; the store's own guards skip any child not actually rejected.
       for (const c of state.children) {
-        if (state.outcomes[c.id]?.status === "Not granted") actions.submitSbfasReapply({ studentId: c.id, reason: a.reason });
+        if (state.outcomes[c.id]?.status === "Not granted") actions.requeueSbfas({ studentId: c.id, reason: a.reason });
       }
       return;
     }

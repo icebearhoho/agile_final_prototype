@@ -6,7 +6,7 @@ import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field, inputClass } from "../../../components/ui/Field";
-import { SBFAS_TIERS, attemptOf, sourceOf, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
+import { SBFAS_TIERS, attemptOf, sourceOf, yearOf, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
 import { useFas } from "../../../data/fasStore";
 import { useFasActions } from "../../../data/fasActions";
 import { useFees } from "../../../data/feeStore";
@@ -51,7 +51,7 @@ function Dt({ label, children }: { label: string; children: React.ReactNode }) {
 
 /** The review body, shared by nothing else anymore but kept as its own component so the page can key
  *  it per application (resets the decision draft when the reviewer opens another one). */
-function ReviewBody({ app, rule, superseded, onDecide }: { app: Enriched; rule: SbfasRule | null; superseded: SbfasApplication | null; onDecide: (id: string, action: Action, draft: Draft) => void }) {
+function ReviewBody({ app, rule, onDecide, onRequeue }: { app: Enriched; rule: SbfasRule | null; onDecide: (id: string, action: Action, draft: Draft) => void; onRequeue: (studentId: string, reason: string) => void }) {
   // The school decides how many tiers exist — list them from its rule, not a fixed national set.
   const tierList: { tier: SbfasTier; basis?: SubsidyBasis; rate?: number; components?: ComponentRates }[] = rule
     ? rule.tiers
@@ -59,6 +59,12 @@ function ReviewBody({ app, rule, superseded, onDecide }: { app: Enriched; rule: 
   const [tier, setTier] = useState<SbfasTier>(tierList.some((t) => t.tier === app.recommendedTier) ? app.recommendedTier : tierList[0].tier);
   const [justification, setJustification] = useState("");
   const [error, setError] = useState<DecisionError | null>(null);
+  // The parent's re-request: the only way a rejection moves now (the school never edits a recorded
+  // decision in place) — the SAME application returns to the queue as its next round, with the
+  // what-changed reason logged on it.
+  const [reasking, setReasking] = useState(false);
+  const [reaskReason, setReaskReason] = useState("");
+  const reaskRef = useRef<HTMLTextAreaElement>(null);
   // BR15: a school reviewer only sees their own students in the family sections; MOE sees all.
   const { role, staff } = useSession();
   const tierRef = useRef<HTMLSelectElement>(null);
@@ -81,6 +87,18 @@ function ReviewBody({ app, rule, superseded, onDecide }: { app: Enriched; rule: 
     onDecide(app.id, action, draft);
   };
 
+  const fileReask = () => {
+    if (!reaskReason.trim()) {
+      setError({ field: "justification", message: "Say what changed since the rejected request — the reason is logged as the next round." });
+      reaskRef.current?.focus();
+      return;
+    }
+    setError(null);
+    setReasking(false);
+    onRequeue(app.studentId, reaskReason.trim());
+    setReaskReason("");
+  };
+
   return (
     <div className="space-y-5">
       <dl className="grid grid-cols-2 gap-4">
@@ -91,7 +109,7 @@ function ReviewBody({ app, rule, superseded, onDecide }: { app: Enriched; rule: 
         </Dt>
         <Dt label="Nationality">{app.nationality}</Dt>
         <Dt label="Application source">
-          {sourceOf(app)}{attemptOf(app) > 1 ? ` · attempt ${attemptOf(app)}` : ""}
+          {sourceOf(app)} · {yearOf(app)} application{attemptOf(app) > 1 ? ` · round ${attemptOf(app)}` : ""}
           {app.enteredBy && <span className="block text-[13px] font-normal text-on-surface-variant">Entered by {app.enteredBy}</span>}
         </Dt>
         <Dt label="Income sync">{app.incomeSyncedOn ?? "Paper form — no MyInfo sync"}</Dt>
@@ -108,14 +126,28 @@ function ReviewBody({ app, rule, superseded, onDecide }: { app: Enriched; rule: 
         </p>
       )}
 
-      {superseded && (
+      {(app.rounds?.length ?? 0) > 1 && (
         <div className="rounded-control border border-line bg-surface-container-low p-4">
-          <p className="text-[13px] font-semibold text-on-surface">Resubmission — replaces {superseded.id}</p>
-          {app.reapplyReason && <p className="mt-1.5 text-sm text-on-surface">What changed: {app.reapplyReason}</p>}
-          <p className="mt-1.5 text-[13px] text-on-surface-variant">
-            Previous request {superseded.id} was {statusLabel(superseded.status)}
-            {superseded.justification ? ` — “${superseded.justification}”` : ""}. Household bands are carried over from it.
-          </p>
+          <p className="text-[13px] font-semibold text-on-surface">Request history — {app.rounds!.length} rounds on this application</p>
+          {/* One record per child: every parent re-request requeued THIS application; each round ends
+              with the decision that closed it, told here once. */}
+          <ol className="mt-2 space-y-1.5">
+            {app.rounds!.map((r, i) => (
+              <li key={i} className="text-[13px]">
+                <span className="font-semibold text-on-surface">Round {i + 1}</span>{" "}
+                {r.at ? new Date(r.at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                {r.note && r.note !== "First request" ? ` — ${r.note}` : ""}
+                {r.by ? ` (filed by ${r.by})` : ""}
+                {r.decision && (
+                  <span className="text-on-surface-variant">
+                    {" "}→ {statusLabel(r.decision.status)}
+                    {r.decision.tier ? ` · ${rankOf(r.decision.tier)}` : ""}
+                    {r.decision.justification ? ` — “${r.decision.justification}”` : ""}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ol>
         </div>
       )}
 
@@ -158,6 +190,43 @@ function ReviewBody({ app, rule, superseded, onDecide }: { app: Enriched; rule: 
           <p className="mt-1 text-[13px] text-on-surface-variant">
             Outcome sent to the parent by SMS/email automatically on the decision date.
           </p>
+          {app.status === "Rejected" && !reasking && (
+            <div className="mt-3 border-t border-line pt-3">
+              <p className="text-[13px] text-on-surface-variant">
+                A recorded decision is never changed in place. If the parent asked again, file a re-request —
+                the same application returns to the queue as its next round, with what changed logged.
+              </p>
+              <div className="mt-2 flex flex-wrap justify-end gap-2">
+                <Button variant="secondary" onClick={() => setReasking(true)}>File a re-request</Button>
+              </div>
+            </div>
+          )}
+          {reasking && (
+            <div className="mt-3 space-y-3 border-t border-line pt-3">
+              <p className="text-[13px] font-semibold text-on-surface">File a re-request — the parent asked again</p>
+              <Field
+                label="What changed since the rejected request"
+                required
+                hint="e.g. a parent stopped working in August — logged as this application's next round."
+                error={error?.field === "justification" ? error.message : undefined}
+              >
+                <textarea
+                  ref={reaskRef}
+                  rows={3}
+                  className={`${inputClass} py-2`}
+                  value={reaskReason}
+                  onChange={(e) => {
+                    setReaskReason(e.target.value);
+                    if (error?.field === "justification") setError(null);
+                  }}
+                />
+              </Field>
+              <div className="flex flex-wrap justify-end gap-3">
+                <Button variant="secondary" onClick={() => { setReasking(false); setReaskReason(""); setError(null); }}>Cancel</Button>
+                <Button onClick={fileReask}>File the re-request</Button>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <>
@@ -210,7 +279,7 @@ export default function ReviewPage() {
   const { state: sbfas } = useSbfas();
   const fees = useFees();
   const movements = useMovements();
-  const { decide } = useFasActions();
+  const { decide, requeueSbfas } = useFasActions();
   const { staff } = useSession();
   const [announce, setAnnounce] = useState("");
 
@@ -230,13 +299,20 @@ export default function ReviewPage() {
   // The rule of the school that owns the application — SBFAS packages are school-defined.
   const school = student ? schoolOfStudent(student, reg.classes) : staff?.schoolCode ?? "S001";
   const rule = enriched ? ruleForSchool(sbfas.rules, school) : null;
-  const superseded = enriched?.supersedesId ? fas.apps.find((a) => a.id === enriched.supersedesId) ?? null : null;
   const back = () => navigate("/admin/fas", { state: { fasTab: "sbfas" } });
 
   const onDecide = (id: string, action: Action, draft: Draft) => {
     decide(id, action, draft); // updates the FAS record and re-prices the student's unpaid fees
     const a = fas.apps.find((x) => x.id === id);
     if (a) setAnnounce(`Application ${id} for ${a.student} ${{ approve: "approved", override: "overridden", reject: "rejected" }[action]}.`);
+  };
+
+  // The parent's re-request: the same application returns to the queue as its next round, the
+  // what-changed reason logged — the page flips back to the live decision form for the new round.
+  const onRequeue = (studentId: string, reason: string) => {
+    requeueSbfas({ studentId, reason, by: staff?.name ?? "School user" });
+    const a = enriched;
+    if (a) setAnnounce(`Re-request filed for ${a.student} — application ${a.id} returned to the queue as its next round.`);
   };
 
   const backLink = (
@@ -280,7 +356,7 @@ export default function ReviewPage() {
         </Badge>
       </div>
       <Card title="Review the application">
-        <ReviewBody key={enriched.id} app={enriched} rule={rule} superseded={superseded} onDecide={onDecide} />
+        <ReviewBody key={enriched.id} app={enriched} rule={rule} onDecide={onDecide} onRequeue={onRequeue} />
       </Card>
     </div>
   );

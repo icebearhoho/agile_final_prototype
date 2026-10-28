@@ -155,12 +155,16 @@ export function FamilyApplicationSections({ fa, initialStudentId, onlySchoolCode
       </Modal>
 
       <Card title="Assessment per child" action={<span className="text-[13px] text-on-surface-variant">One family submission · Separate child outcomes</span>}>
-        <div role="group" aria-label="Child" className="flex flex-wrap gap-2">
-          {children.map((x, i) => (
-            <Button key={x.studentId} size="sm" variant={child === i ? "primary" : "secondary"} aria-pressed={child === i} onClick={() => setChild(i)}>{x.student}</Button>
-          ))}
-        </div>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        {/* The selector chip row only earns its place with more than one child to flip between —
+            a school user sees the one child of theirs on the form, so no chip is rendered at all. */}
+        {children.length > 1 && (
+          <div role="group" aria-label="Child" className="flex flex-wrap gap-2">
+            {children.map((x, i) => (
+              <Button key={x.studentId} size="sm" variant={child === i ? "primary" : "secondary"} aria-pressed={child === i} onClick={() => setChild(i)}>{x.student}</Button>
+            ))}
+          </div>
+        )}
+        <div className={`${children.length > 1 ? "mt-4" : ""} grid gap-4 lg:grid-cols-2`}>
           <dl>
             <KV k="Student / level" v={`${c.student} · ${c.level}`} />
             <KV k="School" v={schoolOf(c.level)} />

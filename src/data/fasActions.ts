@@ -3,7 +3,7 @@ import { withFas } from "../lib/studentFas";
 import { fasReducer, useFas, type FasAction, type SbfasSuggestion } from "./fasStore";
 import { useFees } from "./feeStore";
 import type { Band } from "./familyFas";
-import type { FamilyApplication, HouseholdMember, TransportMode } from "./familyApplications";
+import type { FamilyApplication, FamilyDraft, HouseholdMember, TransportMode } from "./familyApplications";
 import { useRegistry } from "./registryStore";
 import { useSbfas } from "./sbfasStore";
 import { levelForBands, ruleForSchool, suggestedTierOf, subsidySummary, type SbfasRule } from "./sbfasRule";
@@ -27,8 +27,9 @@ export const suggestionOf = (rule: SbfasRule, pci: number): SbfasSuggestion => {
 
 /**
  * The things that change a student's FAS: the school deciding an SBFAS application, the parent submitting
- * the family application, the school entering a paper (hardcopy) application, and a new SBFAS request after
- * a rejection. All go through here so the FAS store and the student's unpaid charges always change together.
+ * the family application, the school entering a paper (hardcopy) application, and a parent re-request
+ * after a rejection (the same application requeued). All go through here so the FAS store and the
+ * student's unpaid charges always change together.
  */
 export function useFasActions() {
   const fas = useFas();
@@ -36,7 +37,8 @@ export function useFasActions() {
   const sbfas = useSbfas();
   const { state: reg } = useRegistry();
 
-  const run = (action: FasAction, studentIds: string[]) => {
+  // Only actions that change a student's FAS (and carry `at`) go through here; draft issuing does not.
+  const run = (action: Extract<FasAction, { at: string }>, studentIds: string[]) => {
     const after = fasReducer(fas.state, action);
     fas.dispatch(action);
     for (const id of studentIds) {
@@ -70,16 +72,36 @@ export function useFasActions() {
     },
     submitHardcopy(input: {
       studentIds: string[]; band: Band; school: string; applicant: string; contact: string; note: string; by: string; entryMode: "manual" | "ocr";
-      address?: string; email?: string; transportMode?: TransportMode;
+      address?: string; email?: string; extraIncome?: number; residents?: number; transportMode?: TransportMode;
       hasAdminIncome?: boolean; household?: HouseholdMember[];
       welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string; formFile?: string;
+      /** The guardian NRIC the form was issued under — closes the family's open draft on submit. */
+      guardianNric?: string;
+      /** The DRF no. printed on the returned paper — closes exactly that draft (several can be open
+       *  for one family after a re-issue). */
+      draftId?: string;
+      /** Section II evidence handed in with the returned form — one list per declaration (mock: file names). */
+      extraIncomeDocs?: string[];
+      residentsDocs?: string[];
+      /** True when the parent ticked No on the contact-details question — contact/address are the
+       *  corrected values they wrote on the returned form. */
+      detailsCorrected?: boolean;
     }) {
       run({
         type: "submitHardcopy", ...input, at: new Date().toISOString(), recommend: suggest(input.studentIds, input.band),
       }, input.studentIds);
     },
-    submitSbfasReapply(input: { studentId: string; reason: string; by?: string; school?: string; applicant?: string; contact?: string; entryMode?: "manual" | "ocr" }) {
-      run({ type: "submitSbfasReapply", ...input, at: new Date().toISOString() }, [input.studentId]);
+    // The parent asked again after a rejection: the SAME application returns to the queue with the
+    // reason logged as its next round — the child goes back to "awaiting", so fees re-check too.
+    requeueSbfas(input: { studentId: string; reason: string; by?: string }) {
+      run({ type: "requeueSbfas", ...input, at: new Date().toISOString() }, [input.studentId]);
+    },
+    // Issuing a form touches no student's FAS, so it goes straight to the store — no fee sync.
+    issueDraft(draft: FamilyDraft) {
+      fas.dispatch({ type: "issueDraft", draft });
+    },
+    voidDraft(id: string) {
+      fas.dispatch({ type: "voidDraft", id });
     },
   };
 }

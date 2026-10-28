@@ -34,8 +34,15 @@ export type FamilyApplication = {
   /** Section I of the MOE form. */
   address?: string;
   email?: string;
+  /** True when the parent ticked No on the returned form's contact-details question — `contact` and
+   *  `address` are the values they wrote by hand, replacing what the issued form was printed with. */
+  contactCorrected?: boolean;
   /** Income band read off the paper form — a band only, never an exact income. */
   bandLabel: string;
+  /** Sprint 3 parity with the online form: the two household fields the parent declares — money not
+   *  in HOMES and everyone living at home. The band itself still comes from HOMES. */
+  extraIncome?: number;
+  residents?: number;
   /** Section II: true when the household declared other administrative income (table keyed in); false = HOMES-only. */
   hasAdminIncome?: boolean;
   /** Section II table, present only when hasAdminIncome. */
@@ -53,7 +60,12 @@ export type FamilyApplication = {
   transportMode?: TransportMode;
   /** "Anything else on the form" (flow 1) or what changed since the rejected request (flow 2). */
   note?: string;
-  /** Section VI: the paper declaration was signed by the applicant on this date (ISO). */
+  /** Section II evidence handed in with the returned form — one upload slot per declaration, keeping
+   *  what the parent brought in attached to the answer it backs (mock demo: file names only, nothing
+   *  is uploaded anywhere). */
+  extraIncomeDocs?: string[];
+  residentsDocs?: string[];
+  /** Section III: the paper declaration was signed by the applicant on this date (ISO). */
   declaredAt?: string;
   /** Staff member who keyed the form in. */
   enteredBy: string;
@@ -72,6 +84,42 @@ const BASE = 10;
 const seqOf = (id: string) => Math.max(0, (Number(id.replace(/\D/g, "")) || 0) - 20260000);
 export const nextFamilyId = (apps: Pick<FamilyApplication, "id">[]) =>
   `FAS2026${String(apps.reduce((m, a) => Math.max(m, seqOf(a.id)), BASE) + 1).padStart(4, "0")}`;
+
+// ---- Issued-form drafts (Sprint 3 refinement: print the form first, key in the returned copy) ----
+
+/** One child as printed on the pre-filled form — the registry's own values, verbatim. */
+export type DraftChild = { studentId: string; name: string; nric: string; school: string; level: string };
+
+/** A pre-filled form the school generated and printed for the parent BEFORE any data entry. The
+ *  parent checks the pre-filled fields, declares the household income and signs; when the signed
+ *  paper comes back, the staff keys it in on the New form tab and checks it against this draft —
+ *  the draft is the system's memory of exactly what was issued (Sherly, Sprint 3 refinement).
+ *  The record is MANDATORY: every issued form is stored so the school always knows which children
+ *  hold a form, and it stays "draft" until the signed copy is keyed in against it. */
+export type FamilyDraft = {
+  /** DRF-#### sequence. */
+  id: string;
+  /** "draft" = printed and with the parent, awaiting the signed copy; "returned" = the signed copy
+   *  came back and was keyed in as `returnedAppId` — the register keeps it for the audit trail. */
+  status: "draft" | "returned";
+  /** The parent/guardian NRIC the form was issued under — the key the returned form is matched by. */
+  guardianNric: string;
+  applicant: string;
+  contact: string;
+  address: string;
+  email?: string;
+  children: DraftChild[];
+  /** ISO date the form was printed and handed to the parent. */
+  issuedAt: string;
+  issuedBy: string;
+  /** The FAS2026#### application the returned copy became — set when the status flips to "returned". */
+  returnedAppId?: string;
+  /** ISO date the signed copy was keyed in against the draft. */
+  returnedAt?: string;
+};
+
+export const nextDraftId = (drafts: Pick<FamilyDraft, "id">[]) =>
+  `DRF-${String(drafts.reduce((m, d) => Math.max(m, Number(d.id.replace(/\D/g, "")) || 0), 0) + 1).padStart(4, "0")}`;
 
 /** Plain-English sentence for a child's outcome row, shared by the school tab and the HQ card. */
 export const outcomeNote = (c: FamilyChild): string =>
