@@ -7,6 +7,7 @@ import { STUDENTS, type Student } from "./students";
 export type Registry = { students: Student[]; classes: ClassRecord[]; schools: SchoolRecord[] };
 export type RegistryAction =
   | { type: "assignStudent"; student: Student }
+  | { type: "moveStudent"; id: string; level: Student["level"]; class: string }
   | { type: "saveClass"; editing: string | null; record: ClassRecord }
   | { type: "saveSchool"; record: SchoolRecord };
 
@@ -20,6 +21,8 @@ export function registryReducer(state: Registry, a: RegistryAction): Registry {
   switch (a.type) {
     case "assignStudent":
       return state.students.some((s) => s.id === a.student.id) ? state : { ...state, students: [a.student, ...state.students] };
+    case "moveStudent":
+      return { ...state, students: state.students.map((s) => (s.id === a.id ? { ...s, level: a.level, class: a.class } : s)) };
     case "saveClass": {
       const exists = a.editing !== null;
       const classes = exists ? state.classes.map((c) => (c.name === a.editing ? a.record : c)) : [a.record, ...state.classes];

@@ -3,7 +3,7 @@ import { useMovements } from "../../../data/movements";
 import { withBalance, withFas } from "../../../lib/studentFas";
 import { useMemo, useState } from "react";
 import { HeaderActions } from "../../../components/layout/HeaderActions";
-import { Plus, Wallet } from "@phosphor-icons/react";
+import { PencilSimple, Plus, Wallet } from "@phosphor-icons/react";
 import { useNavigate, useSearchParams } from "react-router";
 import { maskNric } from "../../../lib/nric";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
@@ -18,6 +18,7 @@ import { schoolOfStudent } from "../../../lib/registry";
 import { schoolCodeFor } from "../../../data/users";
 import { useSession } from "../../../session";
 import AssignStudentModal from "./AddStudentModal";
+import MoveClassModal from "./MoveClassModal";
 import { statusLabel } from "../fas/review";
 import { assignStudent, filterStudents, statusTone } from "./logic";
 
@@ -36,6 +37,7 @@ export default function Students() {
   const { role } = useSession();
   const mySchool = schoolCodeFor(role);
   const [adding, setAdding] = useState(false);
+  const [moving, setMoving] = useState<Student | null>(null);
   const navigate = useNavigate();
   const [notice, setNotice] = useState("");
   const schoolOf = (s: Student) => schoolOfStudent(s, reg.classes);
@@ -106,7 +108,12 @@ export default function Students() {
             columns={columns}
             rows={rows}
             rowKey={(s) => s.id}
-            rowActions={(s) => <RowAction icon={<Wallet size={16} aria-hidden />} onClick={() => navigate(`/admin/students/${s.id}/account`)}>View account</RowAction>}
+            rowActions={(s) => (
+              <>
+                {role === "school" && <RowAction icon={<PencilSimple size={16} aria-hidden />} onClick={() => setMoving(s)}>Move class</RowAction>}
+                <RowAction icon={<Wallet size={16} aria-hidden />} onClick={() => navigate(`/admin/students/${s.id}/account`)}>View account</RowAction>
+              </>
+            )}
             pageSize={20}
             large
             empty={
@@ -129,6 +136,17 @@ export default function Students() {
         onAssign={(a, p) => {
           regDispatch({ type: "assignStudent", student: assignStudent(a, p) });
           setNotice(`${a.name} was assigned to ${p.class}.`);
+        }}
+      />
+
+      <MoveClassModal
+        student={moving}
+        classes={reg.classes}
+        school={mySchool}
+        onClose={() => setMoving(null)}
+        onMove={(s, p) => {
+          regDispatch({ type: "moveStudent", id: s.id, ...p });
+          setNotice(`${s.name} was moved to ${p.class}.`);
         }}
       />
     </div>
